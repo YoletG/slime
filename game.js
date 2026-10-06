@@ -98,6 +98,118 @@
     }
   };
 
+  // Slime Textures Catalog (Cloud, Floam, Butter, Glitter, Crystal, Gold)
+  const SLIME_TEXTURES = {
+    classic: {
+      id: 'classic',
+      name: 'Classic Jelly',
+      price: 0,
+      icon: '🟢',
+      tagline: 'Standard glossy bounce',
+      desc: 'The original translucent jelly slime. Balanced bounce and smooth sheen.'
+    },
+    cloud: {
+      id: 'cloud',
+      name: 'Cloud Slime ☁️',
+      price: 150,
+      icon: '☁️',
+      tagline: 'Airy, drizzly & floaty',
+      desc: 'Fluffy drizzling cotton texture! Floats softly with +15% hangtime and soft ASMR puffs.'
+    },
+    floam: {
+      id: 'floam',
+      name: 'Floam Crunch 🍡',
+      price: 180,
+      icon: '🍡',
+      tagline: 'Crunchy micro-foam beads',
+      desc: 'Packed with thousands of colorful crunchy foam beads. Satisfying ASMR pops on every hit!'
+    },
+    butter: {
+      id: 'butter',
+      name: 'Butter Slime 🧈',
+      price: 220,
+      icon: '🧈',
+      tagline: 'Super smooth & spreadable',
+      desc: 'Clay-infused velvety matte slime. Cushions hard shots and gives supreme landing balance.'
+    },
+    glitter: {
+      id: 'glitter',
+      name: 'Glitter Galaxy ✨',
+      price: 250,
+      icon: '✨',
+      tagline: 'Dazzling star sparkle',
+      desc: 'Infused with holographic stars that shimmer and leave sparkling cosmic trails.'
+    },
+    crystal: {
+      id: 'crystal',
+      name: 'Crystal Clear 💎',
+      price: 300,
+      icon: '💎',
+      tagline: 'Pure glass refraction',
+      desc: 'Ultra clear optical glass texture with brilliant light prisms and snappy ball release.'
+    },
+    gold: {
+      id: 'gold',
+      name: 'Golden Chrome 👑',
+      price: 500,
+      icon: '👑',
+      tagline: 'Molten liquid 24K gold',
+      desc: 'Pure royal metallic chrome reflection. Drips golden sparkles on every spike!'
+    }
+  };
+
+  // Preset Colors for Slime Maker Palette
+  const PRESET_COLORS = [
+    { name: 'Neon Lime', hex: '#38b000' },
+    { name: 'Electric Cyan', hex: '#00f5d4' },
+    { name: 'Bubble Pink', hex: '#ff007f' },
+    { name: 'Sunburst Orange', hex: '#fb5607' },
+    { name: 'Sunshine Yellow', hex: '#ffd166' },
+    { name: 'Cosmic Purple', hex: '#9b5de5' },
+    { name: 'Mint Frost', hex: '#52b788' },
+    { name: 'Ruby Blaze', hex: '#e63946' },
+    { name: 'Deep Royal', hex: '#3a86ff' },
+    { name: 'Pastel Lavender', hex: '#c77dff' }
+  ];
+
+  // Stickiness Traits & Descriptions (1 to 5)
+  const STICKINESS_TRAITS = {
+    1: { name: 'Level 1: Ultra Slick', restitution: 1.16, desc: 'Super slick and springy! Ball shoots off fast with high rebound velocity.' },
+    2: { name: 'Level 2: Light Gloss', restitution: 1.11, desc: 'Crisp and snappy with light surface grip. Snappy response on spikes.' },
+    3: { name: 'Level 3: Balanced', restitution: 1.06, desc: 'Balanced grip & bounce. Great all-around feel for rallies and spikes.' },
+    4: { name: 'Level 4: Gooey Cushion', restitution: 0.98, desc: 'Gooey cushion absorbs heavy opponent spikes and gives precise directional control.' },
+    5: { name: 'Level 5: Super Sticky', restitution: 0.91, desc: 'Ultra sticky taffy! Drastically slows fast spikes and leaves goo string drip trails.' }
+  };
+
+  // Color Utility Helpers for Custom Slimes
+  function hexToRgb(hex) {
+    let c = hex.replace('#', '');
+    if (c.length === 3) c = c.split('').map(x => x + x).join('');
+    const num = parseInt(c, 16);
+    return {
+      r: (num >> 16) & 255,
+      g: (num >> 8) & 255,
+      b: num & 255
+    };
+  }
+
+  function adjustColor(hex, lum) {
+    let { r, g, b } = hexToRgb(hex);
+    r = Math.min(255, Math.max(0, Math.round(lum > 0 ? r + (255 - r) * lum : r * (1 + lum))));
+    g = Math.min(255, Math.max(0, Math.round(lum > 0 ? g + (255 - g) * lum : g * (1 + lum))));
+    b = Math.min(255, Math.max(0, Math.round(lum > 0 ? b + (255 - b) * lum : b * (1 + lum))));
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+
+  function generateSlimeGradient(baseHex) {
+    return [
+      adjustColor(baseHex, 0.65), // Highlight
+      adjustColor(baseHex, 0.25), // Midtone light
+      baseHex,                    // Base color
+      adjustColor(baseHex, -0.45) // Shadow
+    ];
+  }
+
   // --- Particle System ---
   class Particle {
     constructor(x, y, color, size = 5, vx = 0, vy = 0, life = 1.0, gravity = true) {
@@ -373,11 +485,37 @@
       this.superMeter = 0;
       this.isDashing = false;
       this.dashTimer = 0;
+
+      // Custom Slime Properties (Slime Maker & Textures)
+      this.isCustom = false;
+      this.customColor = '#38b000';
+      this.stickiness = 3; // 1 to 5
+      this.texture = 'classic';
+      this.customGrad = null;
+      this.ambientTimer = 0;
     }
 
     setSkin(skinId) {
+      this.isCustom = false;
       if (SLIMES[skinId]) {
         this.skin = SLIMES[skinId];
+      }
+    }
+
+    applyCustomConfig(cfg) {
+      this.isCustom = true;
+      if (cfg.color) this.customColor = cfg.color;
+      if (cfg.stickiness !== undefined) this.stickiness = parseInt(cfg.stickiness, 10);
+      if (cfg.texture) this.texture = cfg.texture;
+      this.customGrad = generateSlimeGradient(this.customColor);
+
+      // Trait modifications
+      if (this.texture === 'cloud') {
+        this.jumpForce = 14.2;
+      } else if (this.texture === 'butter') {
+        this.jumpForce = 13.0;
+      } else {
+        this.jumpForce = 13.5;
       }
     }
 
@@ -388,7 +526,13 @@
         // Stretch vertically when jumping
         this.scaleY = 1.35;
         this.scaleX = 0.78;
-        if (window.slimeAudio) window.slimeAudio.playJump();
+        if (window.slimeAudio) {
+          if (this.isCustom && this.texture === 'cloud') {
+            window.slimeAudio.playCloudPuff();
+          } else {
+            window.slimeAudio.playJump();
+          }
+        }
       }
     }
 
@@ -415,7 +559,9 @@
       // Vertical Movement (Gravity & Jumping)
       this.y += this.vy * dt * 60;
       if (this.y < FLOOR_Y) {
-        this.vy += GRAVITY * dt * 60;
+        // Cloud Slime gets floaty hangtime (+18% hangtime)
+        const curGravity = (this.isCustom && this.texture === 'cloud') ? GRAVITY * 0.82 : GRAVITY;
+        this.vy += curGravity * dt * 60;
         this.isGrounded = false;
       } else {
         if (!this.isGrounded) {
@@ -480,12 +626,34 @@
       // Slime Jelly Dome Geometry (Scaled by soft-body deformation)
       ctx.scale(this.scaleX, this.scaleY);
 
-      // Gradient Fill
+      // Gradient Fill (Custom or Catalog)
       const grad = ctx.createRadialGradient(-15, -30, 8, 0, 0, this.radius);
-      grad.addColorStop(0, this.skin.grad[0]);
-      grad.addColorStop(0.3, this.skin.grad[1]);
-      grad.addColorStop(0.7, this.skin.grad[2]);
-      grad.addColorStop(1, this.skin.grad[3]);
+      if (this.isCustom) {
+        if (this.texture === 'gold') {
+          grad.addColorStop(0, '#fffbe0');
+          grad.addColorStop(0.35, '#ffd700');
+          grad.addColorStop(0.5, '#cca000');
+          grad.addColorStop(0.52, '#fff3a8');
+          grad.addColorStop(0.75, '#b8860b');
+          grad.addColorStop(1, '#5c4308');
+        } else if (this.texture === 'crystal') {
+          grad.addColorStop(0, adjustColor(this.customColor, 0.65));
+          grad.addColorStop(0.35, adjustColor(this.customColor, 0.25));
+          grad.addColorStop(0.75, this.customColor);
+          grad.addColorStop(1, adjustColor(this.customColor, -0.2));
+        } else {
+          const cGrad = this.customGrad || generateSlimeGradient(this.customColor);
+          grad.addColorStop(0, cGrad[0]);
+          grad.addColorStop(0.3, cGrad[1]);
+          grad.addColorStop(0.7, cGrad[2]);
+          grad.addColorStop(1, cGrad[3]);
+        }
+      } else {
+        grad.addColorStop(0, this.skin.grad[0]);
+        grad.addColorStop(0.3, this.skin.grad[1]);
+        grad.addColorStop(0.7, this.skin.grad[2]);
+        grad.addColorStop(1, this.skin.grad[3]);
+      }
 
       ctx.fillStyle = grad;
       ctx.strokeStyle = '#1e1e24';
@@ -498,6 +666,130 @@
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
+
+      // Texture Visual Overlays
+      if (this.isCustom) {
+        if (this.texture === 'cloud') {
+          // Cloud Slime ☁️: Fluffy cumulus cloud puffs overlapping on the top surface
+          ctx.save();
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
+          ctx.beginPath();
+          ctx.arc(-26, -24, 18, 0, Math.PI * 2);
+          ctx.arc(-8, -38, 20, 0, Math.PI * 2);
+          ctx.arc(14, -36, 19, 0, Math.PI * 2);
+          ctx.arc(30, -22, 16, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+          ctx.beginPath();
+          ctx.arc(-10, -18, 22, 0, Math.PI * 2);
+          ctx.arc(10, -18, 20, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        } else if (this.texture === 'floam') {
+          // Floam Slime 🍡: Colorful micro-foam beads suspended in jelly body
+          ctx.save();
+          const beadColors = ['#ffffff', '#ff99c8', '#70e000', '#ffd166', '#00f5d4', '#ff70a6'];
+          const beadPositions = [
+            [-32, -14, 5.5, 0], [-20, -28, 6.0, 1], [-12, -12, 5.0, 2], [0, -32, 6.5, 3],
+            [15, -26, 5.8, 4], [28, -14, 6.2, 5], [-24, -38, 5.2, 3], [8, -16, 5.4, 1],
+            [-6, -42, 5.0, 2], [22, -38, 5.5, 0], [4, -40, 5.2, 4], [-36, -26, 4.8, 5]
+          ];
+          beadPositions.forEach(([bx, by, br, colIdx]) => {
+            ctx.fillStyle = beadColors[colIdx % beadColors.length];
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.arc(bx, by, br, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.beginPath();
+            ctx.arc(bx - br * 0.35, by - br * 0.35, br * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+          });
+          ctx.restore();
+        } else if (this.texture === 'butter') {
+          // Butter Slime 🧈: Velvety smooth butter-knife swirl curve across dome
+          ctx.save();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+          ctx.lineWidth = 8;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(-35, -16);
+          ctx.bezierCurveTo(-15, -42, 10, -44, 34, -20);
+          ctx.stroke();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(-22, -10);
+          ctx.bezierCurveTo(-6, -24, 12, -26, 26, -10);
+          ctx.stroke();
+          ctx.restore();
+        } else if (this.texture === 'glitter') {
+          // Glitter Slime ✨: Twinkling 4-point holographic star sparkles
+          ctx.save();
+          const starOffsets = [
+            [-28, -25, 6, 0], [-10, -36, 7.5, 0.5], [16, -34, 6.5, 1.2],
+            [26, -18, 5.5, 1.8], [-6, -18, 7, 2.3], [12, -12, 5, 3.1]
+          ];
+          starOffsets.forEach(([sx, sy, size, phase]) => {
+            const pulse = (Math.sin(this.wobblePhase * 3 + phase) + 1) * 0.5;
+            const curSize = size * (0.6 + pulse * 0.7);
+            ctx.fillStyle = pulse > 0.6 ? '#ffffff' : '#ffe66d';
+            ctx.beginPath();
+            ctx.moveTo(sx, sy - curSize);
+            ctx.quadraticCurveTo(sx, sy, sx + curSize, sy);
+            ctx.quadraticCurveTo(sx, sy, sx, sy + curSize);
+            ctx.quadraticCurveTo(sx, sy, sx - curSize, sy);
+            ctx.quadraticCurveTo(sx, sy, sx, sy - curSize);
+            ctx.fill();
+          });
+          ctx.restore();
+        } else if (this.texture === 'crystal') {
+          // Crystal Clear 💎: Optical glass refraction gleam & prism facet
+          ctx.save();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(-32, -12);
+          ctx.lineTo(-12, -42);
+          ctx.lineTo(16, -42);
+          ctx.lineTo(34, -12);
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+          ctx.fill();
+          ctx.restore();
+        } else if (this.texture === 'gold') {
+          // Golden Chrome 👑: Metallic horizon reflection line & gold glints
+          ctx.save();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(0, 0, this.radius * 0.5, Math.PI * 1.1, Math.PI * 1.5);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Stickiness Goo Drips (Level 4 & 5)
+        if (this.stickiness >= 4) {
+          ctx.save();
+          ctx.fillStyle = this.customGrad ? this.customGrad[2] : this.customColor;
+          ctx.strokeStyle = '#1e1e24';
+          ctx.lineWidth = 2.0;
+          const dripLen = this.stickiness === 5 ? 18 : 10;
+          const dripPositions = [-28, -6, 18, 34];
+          dripPositions.forEach((dx, i) => {
+            const curDrip = dripLen + Math.sin(this.wobblePhase * 2 + i * 1.5) * 4;
+            ctx.beginPath();
+            ctx.moveTo(dx - 4, 0);
+            ctx.quadraticCurveTo(dx - 4, curDrip * 0.7, dx, curDrip);
+            ctx.quadraticCurveTo(dx + 4, curDrip * 0.7, dx + 4, 0);
+            ctx.fill();
+            ctx.stroke();
+          });
+          ctx.restore();
+        }
+      }
 
       // Curved Specular Gloss Highlight (Cartoon jelly shine)
       ctx.save();
@@ -575,12 +867,37 @@
       this.rally = 0;
       this.time = 0;
 
+      // Currency & Custom Slime State
+      this.coins = parseInt(localStorage.getItem('slime_coins') || '250', 10);
+      try {
+        this.unlockedTextures = JSON.parse(localStorage.getItem('slime_unlocked_textures') || '["classic"]');
+      } catch (e) {
+        this.unlockedTextures = ['classic'];
+      }
+      try {
+        this.customSlimeData = JSON.parse(localStorage.getItem('slime_custom_data') || '{"color":"#38b000","stickiness":3,"texture":"classic","isEquipped":false}');
+      } catch (e) {
+        this.customSlimeData = { color: '#38b000', stickiness: 3, texture: 'classic', isEquipped: false };
+      }
+
+      this.makerColor = this.customSlimeData.color || '#38b000';
+      this.makerStickiness = this.customSlimeData.stickiness || 3;
+      this.makerTexture = this.customSlimeData.texture || 'classic';
+
       // Entities
       this.p1 = new Slime(200, 'left', 'goopy');
       this.p2 = new Slime(760, 'right', 'magma');
       this.ball = new Ball(this.mode);
       this.particles = [];
       this.confetti = [];
+
+      // Apply custom slime if previously equipped
+      if (this.customSlimeData && this.customSlimeData.isEquipped) {
+        this.p1.applyCustomConfig(this.customSlimeData);
+        const texObj = SLIME_TEXTURES[this.makerTexture];
+        const p1AvatarEl = document.getElementById('p1Avatar');
+        if (p1AvatarEl) p1AvatarEl.textContent = texObj ? texObj.icon : '🧪';
+      }
 
       // Net / Goal Dimensions
       this.netWidth = 14;
@@ -596,6 +913,8 @@
       // DOM UI Elements
       this.bindDOMElements();
       this.bindEventListeners();
+      this.initSlimeCoins();
+      this.initSlimeLab();
       this.buildSkinsGrid();
 
       // Screen Warper
@@ -640,6 +959,28 @@
       this.skinsGrid = document.getElementById('skinsGrid');
       this.closeSkinsBtn = document.getElementById('closeSkinsBtn');
       this.closeSkinsXBtn = document.getElementById('closeSkinsXBtn');
+
+      // Slime Lab & Currency Elements
+      this.coinsBadge = document.getElementById('coinsBadge');
+      this.coinsVal = document.getElementById('coinsVal');
+      this.labCoinsVal = document.getElementById('labCoinsVal');
+      this.slimeMakerBtn = document.getElementById('slimeMakerBtn');
+      this.slimeLabModal = document.getElementById('slimeLabModal');
+      this.closeLabBtn = document.getElementById('closeLabBtn');
+      this.closeLabXBtn = document.getElementById('closeLabXBtn');
+      this.tabMakerBtn = document.getElementById('tabMakerBtn');
+      this.tabTexturesBtn = document.getElementById('tabTexturesBtn');
+      this.tabMakerContent = document.getElementById('tabMakerContent');
+      this.tabTexturesContent = document.getElementById('tabTexturesContent');
+      this.slimePreviewCanvas = document.getElementById('slimePreviewCanvas');
+      this.activeTextureLabel = document.getElementById('activeTextureLabel');
+      this.colorPalette = document.getElementById('colorPalette');
+      this.customColorPicker = document.getElementById('customColorPicker');
+      this.stickinessValueLabel = document.getElementById('stickinessValueLabel');
+      this.stickinessSlider = document.getElementById('stickinessSlider');
+      this.stickinessTraitDesc = document.getElementById('stickinessTraitDesc');
+      this.equipCustomSlimeBtn = document.getElementById('equipCustomSlimeBtn');
+      this.texturesGrid = document.getElementById('texturesGrid');
     }
 
     bindEventListeners() {
@@ -670,7 +1011,10 @@
         if (k === 'p') this.togglePause();
         if (k === 'r') this.restartMatch();
         if (k === 'm') this.toggleSound();
-        if (e.code === 'Escape') this.closeSkinsModal();
+        if (e.code === 'Escape') {
+          this.closeSkinsModal();
+          this.closeSlimeLab();
+        }
       });
 
       window.addEventListener('keyup', (e) => {
@@ -738,6 +1082,22 @@
       this.skinsModal.addEventListener('click', (e) => {
         if (e.target === this.skinsModal) this.closeSkinsModal();
       });
+
+      // Slime Lab Modal
+      if (this.slimeMakerBtn) {
+        this.slimeMakerBtn.addEventListener('click', () => this.openSlimeLab());
+      }
+      if (this.closeLabBtn) {
+        this.closeLabBtn.addEventListener('click', () => this.closeSlimeLab());
+      }
+      if (this.closeLabXBtn) {
+        this.closeLabXBtn.addEventListener('click', () => this.closeSlimeLab());
+      }
+      if (this.slimeLabModal) {
+        this.slimeLabModal.addEventListener('click', (e) => {
+          if (e.target === this.slimeLabModal) this.closeSlimeLab();
+        });
+      }
     }
 
     bindTouchControls() {
@@ -802,6 +1162,7 @@
     openSkinsModal() {
       this.skinsModal.classList.remove('hidden');
       if (this.state === 'PLAYING') this.togglePause();
+      this.buildSkinsGrid();
     }
 
     closeSkinsModal() {
@@ -809,11 +1170,638 @@
       this.warpGameToScreen();
     }
 
+    // Slime Currency Management
+    initSlimeCoins() {
+      if (this.coinsVal) this.coinsVal.textContent = this.coins;
+      if (this.labCoinsVal) this.labCoinsVal.textContent = this.coins;
+    }
+
+    addCoins(amt) {
+      this.coins = Math.max(0, this.coins + amt);
+      localStorage.setItem('slime_coins', this.coins);
+      if (this.coinsVal) this.coinsVal.textContent = this.coins;
+      if (this.labCoinsVal) this.labCoinsVal.textContent = this.coins;
+
+      if (amt > 0) {
+        if (this.coinsBadge) {
+          this.coinsBadge.classList.remove('bump');
+          void this.coinsBadge.offsetWidth;
+          this.coinsBadge.classList.add('bump');
+        }
+        if (window.slimeAudio) window.slimeAudio.playCoinSound();
+      }
+    }
+
+    // Slime Lab Controller
+    openSlimeLab() {
+      if (!this.slimeLabModal) return;
+      this.slimeLabModal.classList.remove('hidden');
+      if (this.state === 'PLAYING') this.togglePause();
+      this.renderColorPalette();
+      this.renderTexturesGrid();
+      if (this.labCoinsVal) this.labCoinsVal.textContent = this.coins;
+      const texObj = SLIME_TEXTURES[this.makerTexture];
+      if (this.activeTextureLabel && texObj) {
+        this.activeTextureLabel.innerHTML = `Texture: <strong>${texObj.name}</strong>`;
+      }
+    }
+
+    closeSlimeLab() {
+      if (!this.slimeLabModal) return;
+      this.slimeLabModal.classList.add('hidden');
+      this.warpGameToScreen();
+    }
+
+    initSlimeLab() {
+      // Tab switcher
+      if (this.tabMakerBtn && this.tabTexturesBtn) {
+        this.tabMakerBtn.addEventListener('click', () => {
+          this.tabMakerBtn.classList.add('active');
+          this.tabTexturesBtn.classList.remove('active');
+          if (this.tabMakerContent) this.tabMakerContent.classList.remove('hidden');
+          if (this.tabTexturesContent) this.tabTexturesContent.classList.add('hidden');
+        });
+
+        this.tabTexturesBtn.addEventListener('click', () => {
+          this.tabTexturesBtn.classList.add('active');
+          this.tabMakerBtn.classList.remove('active');
+          if (this.tabTexturesContent) this.tabTexturesContent.classList.remove('hidden');
+          if (this.tabMakerContent) this.tabMakerContent.classList.add('hidden');
+          this.renderTexturesGrid();
+        });
+      }
+
+      // Stickiness slider
+      if (this.stickinessSlider) {
+        this.stickinessSlider.value = this.makerStickiness;
+        this.stickinessSlider.addEventListener('input', (e) => {
+          this.makerStickiness = parseInt(e.target.value, 10);
+          const trait = STICKINESS_TRAITS[this.makerStickiness];
+          if (this.stickinessValueLabel && trait) {
+            this.stickinessValueLabel.textContent = trait.name;
+          }
+          if (this.stickinessTraitDesc && trait) {
+            this.stickinessTraitDesc.textContent = trait.desc;
+          }
+          if (window.slimeAudio) {
+            window.slimeAudio.playASMRSquish(this.makerStickiness);
+          }
+        });
+      }
+
+      // Custom Color Picker
+      if (this.customColorPicker) {
+        this.customColorPicker.value = this.makerColor;
+        this.customColorPicker.addEventListener('input', (e) => {
+          this.makerColor = e.target.value;
+          document.querySelectorAll('.color-swatch').forEach(sw => sw.classList.remove('active'));
+        });
+      }
+
+      // Equip Custom Slime Button
+      if (this.equipCustomSlimeBtn) {
+        this.equipCustomSlimeBtn.addEventListener('click', () => {
+          this.customSlimeData = {
+            color: this.makerColor,
+            stickiness: this.makerStickiness,
+            texture: this.makerTexture,
+            isEquipped: true
+          };
+          localStorage.setItem('slime_custom_data', JSON.stringify(this.customSlimeData));
+          this.p1.applyCustomConfig(this.customSlimeData);
+
+          const texObj = SLIME_TEXTURES[this.makerTexture];
+          const avatar = texObj ? texObj.icon : '🧪';
+          const p1AvatarEl = document.getElementById('p1Avatar');
+          if (p1AvatarEl) p1AvatarEl.textContent = avatar;
+
+          const prevText = this.equipCustomSlimeBtn.textContent;
+          this.equipCustomSlimeBtn.textContent = '✓ Slime Equipped & Ready!';
+          this.equipCustomSlimeBtn.style.transform = 'scale(1.03)';
+          setTimeout(() => {
+            this.equipCustomSlimeBtn.textContent = prevText;
+            this.equipCustomSlimeBtn.style.transform = '';
+          }, 1400);
+
+          if (window.slimeAudio) window.slimeAudio.playBuySound();
+        });
+      }
+
+      this.renderColorPalette();
+      this.renderTexturesGrid();
+      this.setupSlimePreviewBowl();
+    }
+
+    renderColorPalette() {
+      if (!this.colorPalette) return;
+      this.colorPalette.innerHTML = '';
+
+      PRESET_COLORS.forEach(c => {
+        const swatch = document.createElement('div');
+        swatch.className = `color-swatch ${this.makerColor.toLowerCase() === c.hex.toLowerCase() ? 'active' : ''}`;
+        swatch.style.backgroundColor = c.hex;
+        swatch.title = c.name;
+
+        swatch.addEventListener('click', () => {
+          this.makerColor = c.hex;
+          if (this.customColorPicker) this.customColorPicker.value = c.hex;
+          this.renderColorPalette();
+          if (window.slimeAudio) window.slimeAudio.playASMRSquish(this.makerStickiness);
+        });
+
+        this.colorPalette.appendChild(swatch);
+      });
+    }
+
+    renderTexturesGrid() {
+      if (!this.texturesGrid) return;
+      this.texturesGrid.innerHTML = '';
+
+      Object.values(SLIME_TEXTURES).forEach(tex => {
+        const isOwned = this.unlockedTextures.includes(tex.id);
+        const isEquipped = this.makerTexture === tex.id;
+
+        const card = document.createElement('div');
+        card.className = `texture-card ${isEquipped ? 'equipped' : ''}`;
+
+        // Preview Canvas
+        const preview = document.createElement('canvas');
+        preview.width = 80;
+        preview.height = 55;
+        preview.className = 'texture-preview-canvas';
+        const pCtx = preview.getContext('2d');
+        this.drawTexturePreview(pCtx, tex);
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'texture-name';
+        nameEl.textContent = tex.name;
+
+        const tagEl = document.createElement('div');
+        tagEl.className = 'texture-price-tag';
+        tagEl.textContent = isOwned ? 'UNLOCKED' : `🪙 ${tex.price} Coins`;
+
+        const descEl = document.createElement('div');
+        descEl.className = 'texture-desc';
+        descEl.textContent = tex.desc;
+
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-texture-action';
+
+        if (isOwned) {
+          if (isEquipped) {
+            btn.className += ' btn-texture-equip';
+            btn.textContent = '✓ Active';
+            btn.disabled = true;
+          } else {
+            btn.className += ' btn-texture-equip';
+            btn.textContent = 'Equip Texture';
+            btn.addEventListener('click', () => {
+              this.makerTexture = tex.id;
+              if (this.activeTextureLabel) {
+                this.activeTextureLabel.innerHTML = `Texture: <strong>${tex.name}</strong>`;
+              }
+              this.renderTexturesGrid();
+              if (window.slimeAudio) {
+                if (tex.id === 'cloud') window.slimeAudio.playCloudPuff();
+                else if (tex.id === 'floam') window.slimeAudio.playFoamCrunch();
+                else window.slimeAudio.playASMRSquish(this.makerStickiness);
+              }
+            });
+          }
+        } else {
+          btn.className += ' btn-texture-buy';
+          const canAfford = this.coins >= tex.price;
+          btn.textContent = canAfford ? `Buy for 🪙${tex.price}` : `Need ${tex.price - this.coins} more 🪙`;
+          if (!canAfford) {
+            btn.style.opacity = '0.65';
+          }
+          btn.addEventListener('click', () => {
+            if (this.coins >= tex.price) {
+              this.addCoins(-tex.price);
+              this.unlockedTextures.push(tex.id);
+              localStorage.setItem('slime_unlocked_textures', JSON.stringify(this.unlockedTextures));
+              this.makerTexture = tex.id;
+              if (this.activeTextureLabel) {
+                this.activeTextureLabel.innerHTML = `Texture: <strong>${tex.name}</strong>`;
+              }
+              if (window.slimeAudio) window.slimeAudio.playBuySound();
+              this.renderTexturesGrid();
+            } else {
+              if (this.coinsBadge) {
+                this.coinsBadge.classList.remove('bump');
+                void this.coinsBadge.offsetWidth;
+                this.coinsBadge.classList.add('bump');
+              }
+            }
+          });
+        }
+
+        card.appendChild(preview);
+        card.appendChild(nameEl);
+        card.appendChild(tagEl);
+        card.appendChild(descEl);
+        card.appendChild(btn);
+
+        this.texturesGrid.appendChild(card);
+      });
+    }
+
+    drawTexturePreview(ctx, tex) {
+      ctx.save();
+      ctx.translate(40, 48);
+
+      const r = 34;
+      const grad = ctx.createRadialGradient(-10, -20, 5, 0, 0, r);
+      if (tex.id === 'gold') {
+        grad.addColorStop(0, '#fffbe0');
+        grad.addColorStop(0.35, '#ffd700');
+        grad.addColorStop(0.5, '#cca000');
+        grad.addColorStop(0.52, '#fff3a8');
+        grad.addColorStop(0.8, '#b8860b');
+        grad.addColorStop(1, '#5c4308');
+      } else if (tex.id === 'cloud') {
+        grad.addColorStop(0, '#e0f7fa');
+        grad.addColorStop(0.3, '#b2ebf2');
+        grad.addColorStop(0.7, '#80deea');
+        grad.addColorStop(1, '#26c6da');
+      } else if (tex.id === 'crystal') {
+        grad.addColorStop(0, 'rgba(224, 247, 250, 0.9)');
+        grad.addColorStop(0.5, 'rgba(128, 222, 234, 0.7)');
+        grad.addColorStop(1, 'rgba(0, 188, 212, 0.5)');
+      } else if (tex.id === 'floam') {
+        grad.addColorStop(0, '#ffccd5');
+        grad.addColorStop(0.4, '#ff758f');
+        grad.addColorStop(1, '#c9184a');
+      } else if (tex.id === 'butter') {
+        grad.addColorStop(0, '#fff3b0');
+        grad.addColorStop(0.4, '#ffe66d');
+        grad.addColorStop(1, '#e9c46a');
+      } else if (tex.id === 'glitter') {
+        grad.addColorStop(0, '#e0aaff');
+        grad.addColorStop(0.4, '#c77dff');
+        grad.addColorStop(1, '#7b2cbf');
+      } else {
+        grad.addColorStop(0, '#9ef01a');
+        grad.addColorStop(0.4, '#38b000');
+        grad.addColorStop(1, '#007200');
+      }
+
+      ctx.fillStyle = grad;
+      ctx.strokeStyle = '#1e1e24';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, Math.PI, 0, false);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Texture Overlays on preview mini-dome
+      if (tex.id === 'cloud') {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.beginPath();
+        ctx.arc(-14, -14, 11, 0, Math.PI * 2);
+        ctx.arc(0, -22, 12, 0, Math.PI * 2);
+        ctx.arc(14, -14, 10, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (tex.id === 'floam') {
+        const beads = ['#fff', '#00f5d4', '#ffd166', '#ff007f'];
+        [[-16, -10], [-6, -20], [8, -16], [16, -8], [-2, -8]].forEach(([bx, by], i) => {
+          ctx.fillStyle = beads[i % beads.length];
+          ctx.beginPath();
+          ctx.arc(bx, by, 3.2, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      } else if (tex.id === 'butter') {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(-18, -10);
+        ctx.quadraticCurveTo(0, -22, 18, -8);
+        ctx.stroke();
+      } else if (tex.id === 'glitter') {
+        ctx.fillStyle = '#fff3a8';
+        [[-12, -14], [10, -18], [0, -8]].forEach(([sx, sy]) => {
+          ctx.beginPath();
+          ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      } else if (tex.id === 'crystal') {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-16, -8);
+        ctx.lineTo(0, -26);
+        ctx.lineTo(16, -8);
+        ctx.stroke();
+      }
+
+      // Eye
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(12, -14, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#111';
+      ctx.beginPath();
+      ctx.arc(14, -14, 2.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // Interactive Squish & Poke Bowl Canvas
+    setupSlimePreviewBowl() {
+      const canvas = this.slimePreviewCanvas;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const cw = canvas.width;
+      const ch = canvas.height;
+
+      const bowlX = cw / 2;
+      const bowlY = ch * 0.76;
+      const bowlR = 72;
+
+      const slimeState = {
+        apexX: bowlX,
+        apexY: bowlY - 34,
+        vx: 0,
+        vy: 0,
+        isDragging: false,
+        wobble: 0,
+        particles: []
+      };
+
+      const getCanvasPos = (evt) => {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+        const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        return {
+          x: (clientX - rect.left) * scaleX,
+          y: (clientY - rect.top) * scaleY
+        };
+      };
+
+      const handlePointerDown = (evt) => {
+        const pos = getCanvasPos(evt);
+        const dist = Math.hypot(pos.x - slimeState.apexX, pos.y - slimeState.apexY);
+        if (dist < 60) {
+          slimeState.isDragging = true;
+          slimeState.apexX = pos.x;
+          slimeState.apexY = pos.y;
+          slimeState.wobble = 0.5;
+
+          if (window.slimeAudio) {
+            window.slimeAudio.playASMRSquish(this.makerStickiness);
+          }
+
+          for (let i = 0; i < 6; i++) {
+            slimeState.particles.push({
+              x: pos.x,
+              y: pos.y,
+              vx: (Math.random() - 0.5) * 4,
+              vy: (Math.random() - 0.5) * 4,
+              color: this.makerColor,
+              life: 0.6
+            });
+          }
+        }
+      };
+
+      const handlePointerMove = (evt) => {
+        if (!slimeState.isDragging) return;
+        const pos = getCanvasPos(evt);
+        const maxDist = 72;
+        const dx = pos.x - bowlX;
+        const dy = pos.y - (bowlY - 20);
+        const dist = Math.hypot(dx, dy);
+        if (dist > maxDist) {
+          slimeState.apexX = bowlX + (dx / dist) * maxDist;
+          slimeState.apexY = (bowlY - 20) + (dy / dist) * maxDist;
+        } else {
+          slimeState.apexX = pos.x;
+          slimeState.apexY = pos.y;
+        }
+      };
+
+      const handlePointerUp = () => {
+        if (slimeState.isDragging) {
+          slimeState.isDragging = false;
+          slimeState.wobble = 0.6 + this.makerStickiness * 0.1;
+
+          if (window.slimeAudio) {
+            if (this.makerTexture === 'cloud') {
+              window.slimeAudio.playCloudPuff();
+            } else if (this.makerTexture === 'floam') {
+              window.slimeAudio.playFoamCrunch();
+            } else {
+              window.slimeAudio.playASMRSquish(this.makerStickiness);
+            }
+          }
+        }
+      };
+
+      canvas.addEventListener('mousedown', handlePointerDown);
+      window.addEventListener('mousemove', handlePointerMove);
+      window.addEventListener('mouseup', handlePointerUp);
+
+      canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handlePointerDown(e); }, { passive: false });
+      window.addEventListener('touchmove', handlePointerMove, { passive: true });
+      window.addEventListener('touchend', handlePointerUp, { passive: true });
+
+      const renderBowl = () => {
+        ctx.clearRect(0, 0, cw, ch);
+
+        const restX = bowlX;
+        const restY = bowlY - 32;
+        if (!slimeState.isDragging) {
+          const k = 0.18;
+          const damping = 0.78 - (this.makerStickiness - 1) * 0.04;
+          const ax = (restX - slimeState.apexX) * k;
+          const ay = (restY - slimeState.apexY) * k;
+          slimeState.vx = (slimeState.vx + ax) * damping;
+          slimeState.vy = (slimeState.vy + ay) * damping;
+          slimeState.apexX += slimeState.vx;
+          slimeState.apexY += slimeState.vy;
+          slimeState.wobble *= 0.94;
+        }
+
+        // Draw Ceramic Bowl Interior / Back
+        ctx.save();
+        ctx.fillStyle = '#162842';
+        ctx.beginPath();
+        ctx.ellipse(bowlX, bowlY, bowlR, 26, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Draw Slime Jelly Blob
+        ctx.save();
+        const grad = ctx.createRadialGradient(slimeState.apexX - 10, slimeState.apexY - 15, 6, bowlX, bowlY, bowlR);
+        const curGrad = generateSlimeGradient(this.makerColor);
+        if (this.makerTexture === 'gold') {
+          grad.addColorStop(0, '#fffbe0');
+          grad.addColorStop(0.3, '#ffd700');
+          grad.addColorStop(0.5, '#cca000');
+          grad.addColorStop(0.52, '#fff3a8');
+          grad.addColorStop(0.8, '#b8860b');
+          grad.addColorStop(1, '#5c4308');
+        } else if (this.makerTexture === 'crystal') {
+          grad.addColorStop(0, adjustColor(this.makerColor, 0.7));
+          grad.addColorStop(0.4, adjustColor(this.makerColor, 0.3));
+          grad.addColorStop(1, adjustColor(this.makerColor, -0.2));
+        } else {
+          grad.addColorStop(0, curGrad[0]);
+          grad.addColorStop(0.3, curGrad[1]);
+          grad.addColorStop(0.7, curGrad[2]);
+          grad.addColorStop(1, curGrad[3]);
+        }
+
+        ctx.fillStyle = grad;
+        ctx.strokeStyle = '#1a1a24';
+        ctx.lineWidth = 2.8;
+
+        const baseLeftX = bowlX - bowlR * 0.72;
+        const baseRightX = bowlX + bowlR * 0.72;
+        const baseY = bowlY + 4;
+
+        ctx.beginPath();
+        ctx.moveTo(baseLeftX, baseY);
+        ctx.quadraticCurveTo(slimeState.apexX - 35, (baseY + slimeState.apexY) / 2 + 5, slimeState.apexX, slimeState.apexY);
+        ctx.quadraticCurveTo(slimeState.apexX + 35, (baseY + slimeState.apexY) / 2 + 5, baseRightX, baseY);
+        ctx.quadraticCurveTo(bowlX, baseY + 18, baseLeftX, baseY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Texture Details in preview blob
+        if (this.makerTexture === 'cloud') {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+          ctx.beginPath();
+          ctx.arc(slimeState.apexX - 18, slimeState.apexY + 8, 14, 0, Math.PI * 2);
+          ctx.arc(slimeState.apexX, slimeState.apexY, 15, 0, Math.PI * 2);
+          ctx.arc(slimeState.apexX + 18, slimeState.apexY + 8, 13, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (this.makerTexture === 'floam') {
+          const beadColors = ['#ffffff', '#ff99c8', '#70e000', '#ffd166', '#00f5d4'];
+          const offsets = [
+            [-22, 10, 0], [-10, -5, 1], [0, 8, 2], [14, -2, 3], [22, 12, 4],
+            [-15, 20, 2], [10, 18, 0], [-2, 22, 1]
+          ];
+          offsets.forEach(([ox, oy, cIdx]) => {
+            const bx = slimeState.apexX + ox;
+            const by = slimeState.apexY + oy + 12;
+            ctx.fillStyle = beadColors[cIdx % beadColors.length];
+            ctx.beginPath();
+            ctx.arc(bx, by, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.beginPath();
+            ctx.arc(bx - 1.2, by - 1.2, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        } else if (this.makerTexture === 'butter') {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+          ctx.lineWidth = 5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(slimeState.apexX - 22, slimeState.apexY + 8);
+          ctx.quadraticCurveTo(slimeState.apexX, slimeState.apexY - 2, slimeState.apexX + 22, slimeState.apexY + 12);
+          ctx.stroke();
+        } else if (this.makerTexture === 'glitter') {
+          const stars = [[-16, 6], [0, -2], [15, 8], [-8, 20], [12, 22]];
+          stars.forEach(([ox, oy]) => {
+            const sx = slimeState.apexX + ox;
+            const sy = slimeState.apexY + oy + 6;
+            ctx.fillStyle = '#fff3a8';
+            ctx.beginPath();
+            ctx.moveTo(sx, sy - 4);
+            ctx.quadraticCurveTo(sx, sy, sx + 4, sy);
+            ctx.quadraticCurveTo(sx, sy, sx, sy + 4);
+            ctx.quadraticCurveTo(sx, sy, sx - 4, sy);
+            ctx.quadraticCurveTo(sx, sy, sx, sy - 4);
+            ctx.fill();
+          });
+        } else if (this.makerTexture === 'crystal') {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(slimeState.apexX - 18, slimeState.apexY + 14);
+          ctx.lineTo(slimeState.apexX, slimeState.apexY + 2);
+          ctx.lineTo(slimeState.apexX + 18, slimeState.apexY + 14);
+          ctx.stroke();
+        }
+
+        // Stickiness Goo string when pulled high (Levels 4 & 5)
+        if (this.makerStickiness >= 4 && slimeState.isDragging && slimeState.apexY < bowlY - 45) {
+          ctx.strokeStyle = curGrad[2];
+          ctx.lineWidth = this.makerStickiness === 5 ? 4 : 2.5;
+          ctx.beginPath();
+          ctx.moveTo(bowlX - 12, bowlY - 10);
+          ctx.lineTo(slimeState.apexX - 8, slimeState.apexY + 12);
+          ctx.moveTo(bowlX + 12, bowlY - 10);
+          ctx.lineTo(slimeState.apexX + 8, slimeState.apexY + 12);
+          ctx.stroke();
+        }
+
+        // Specular shine on apex
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+        ctx.lineWidth = 3.5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(slimeState.apexX - 6, slimeState.apexY + 12, 14, Math.PI * 1.1, Math.PI * 1.55);
+        ctx.stroke();
+
+        ctx.restore();
+
+        // Draw Ceramic Bowl Rim (Front layer)
+        ctx.save();
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = '#2b4d75';
+        ctx.beginPath();
+        ctx.ellipse(bowlX, bowlY, bowlR, 24, 0, 0, Math.PI);
+        ctx.stroke();
+
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.beginPath();
+        ctx.ellipse(bowlX, bowlY, bowlR - 2, 22, 0, Math.PI * 0.2, Math.PI * 0.8);
+        ctx.stroke();
+        ctx.restore();
+
+        // Update and draw preview particles
+        for (let i = slimeState.particles.length - 1; i >= 0; i--) {
+          const p = slimeState.particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.life -= 0.03;
+          if (p.life <= 0) {
+            slimeState.particles.splice(i, 1);
+          } else {
+            ctx.save();
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+
+        requestAnimationFrame(renderBowl);
+      };
+
+      requestAnimationFrame(renderBowl);
+    }
+
     buildSkinsGrid() {
       this.skinsGrid.innerHTML = '';
-      Object.values(SLIMES).forEach(skin => {
-        const item = document.createElement('div');
-        item.className = `skin-item ${this.p1.skin.id === skin.id ? 'equipped' : ''}`;
+
+      // If user has created/equipped custom slime, show Custom Slime Card first!
+      if (this.customSlimeData) {
+        const cItem = document.createElement('div');
+        const isCustomActive = this.p1.isCustom;
+        cItem.className = `skin-item ${isCustomActive ? 'equipped' : ''}`;
 
         const preview = document.createElement('canvas');
         preview.width = 80;
@@ -821,7 +1809,74 @@
         preview.className = 'skin-preview-canvas';
         const pCtx = preview.getContext('2d');
 
-        // Draw preview mini slime
+        pCtx.save();
+        pCtx.translate(40, 48);
+        const grad = pCtx.createRadialGradient(-10, -20, 5, 0, 0, 36);
+        const cGrad = generateSlimeGradient(this.customSlimeData.color || '#38b000');
+        grad.addColorStop(0, cGrad[0]);
+        grad.addColorStop(0.3, cGrad[1]);
+        grad.addColorStop(0.7, cGrad[2]);
+        grad.addColorStop(1, cGrad[3]);
+        pCtx.fillStyle = grad;
+        pCtx.strokeStyle = '#1e1e24';
+        pCtx.lineWidth = 2.5;
+        pCtx.beginPath();
+        pCtx.arc(0, 0, 36, Math.PI, 0, false);
+        pCtx.closePath();
+        pCtx.fill();
+        pCtx.stroke();
+
+        // Eye
+        pCtx.fillStyle = '#fff';
+        pCtx.beginPath();
+        pCtx.arc(14, -18, 6.5, 0, Math.PI * 2);
+        pCtx.fill();
+        pCtx.stroke();
+        pCtx.fillStyle = '#111';
+        pCtx.beginPath();
+        pCtx.arc(16, -18, 3.5, 0, Math.PI * 2);
+        pCtx.fill();
+        pCtx.restore();
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'skin-name';
+        nameEl.textContent = '🧪 My Custom Slime';
+
+        const texName = (SLIME_TEXTURES[this.customSlimeData.texture] || {}).name || 'Classic';
+        const powerEl = document.createElement('div');
+        powerEl.className = 'skin-power-tag';
+        powerEl.textContent = `✨ ${texName} · Lvl ${this.customSlimeData.stickiness || 3}`;
+
+        const descEl = document.createElement('div');
+        descEl.className = 'skin-desc';
+        descEl.textContent = 'Crafted in Slime Lab with custom color & stickiness!';
+
+        cItem.appendChild(preview);
+        cItem.appendChild(nameEl);
+        cItem.appendChild(powerEl);
+        cItem.appendChild(descEl);
+
+        cItem.addEventListener('click', () => {
+          this.p1.applyCustomConfig(this.customSlimeData);
+          const texObj = SLIME_TEXTURES[this.customSlimeData.texture];
+          document.getElementById('p1Avatar').textContent = texObj ? texObj.icon : '🧪';
+          this.buildSkinsGrid();
+          if (window.slimeAudio) window.slimeAudio.playJump(1.2);
+        });
+
+        this.skinsGrid.appendChild(cItem);
+      }
+
+      Object.values(SLIMES).forEach(skin => {
+        const item = document.createElement('div');
+        item.className = `skin-item ${(!this.p1.isCustom && this.p1.skin.id === skin.id) ? 'equipped' : ''}`;
+
+        const preview = document.createElement('canvas');
+        preview.width = 80;
+        preview.height = 55;
+        preview.className = 'skin-preview-canvas';
+        const pCtx = preview.getContext('2d');
+
         pCtx.save();
         pCtx.translate(40, 48);
         const grad = pCtx.createRadialGradient(-10, -20, 5, 0, 0, 36);
@@ -838,7 +1893,6 @@
         pCtx.fill();
         pCtx.stroke();
 
-        // Eye
         pCtx.fillStyle = '#fff';
         pCtx.beginPath();
         pCtx.arc(14, -18, 6.5, 0, Math.PI * 2);
@@ -966,6 +2020,7 @@
 
       if (scoringSide === 'left') {
         this.p1Score++;
+        this.addCoins(20);
         if (window.slimeAudio) window.slimeAudio.playPointScored();
       } else {
         this.p2Score++;
@@ -1002,6 +2057,10 @@
         this.overlayMsg.textContent = isP1Win ? 'Player 1 wins the championship match!' : 'Player 2 wins the championship match!';
       } else {
         this.overlayMsg.textContent = isP1Win ? 'You defeated the Robo-Slime in an epic jelly clash!' : 'Robo-Slime took the victory. Try again with a new strategy!';
+      }
+
+      if (isP1Win) {
+        this.addCoins(100);
       }
 
       this.actionBtn.textContent = 'Play Again';
@@ -1096,10 +2155,22 @@
         const normalVel = rvx * nx + rvy * ny;
 
         if (normalVel < 0) {
-          // Elastic jelly bounce response
-          const restitution = 1.08;
+          // Restitution based on stickiness and texture
+          let restitution = 1.08;
+          if (slime.isCustom) {
+            const trait = STICKINESS_TRAITS[slime.stickiness];
+            if (trait) restitution = trait.restitution;
+            if (slime.texture === 'crystal') restitution += 0.04;
+            if (slime.texture === 'butter') restitution -= 0.04;
+          }
+
           b.vx = b.vx - (1 + restitution) * normalVel * nx + slime.vx * 0.35;
           b.vy = b.vy - (1 + restitution) * normalVel * ny + slime.vy * 0.35;
+
+          // High stickiness (Levels 4 & 5) gives strong directional traction from slime movement
+          if (slime.isCustom && slime.stickiness >= 4) {
+            b.vx += slime.vx * (slime.stickiness === 5 ? 0.38 : 0.22);
+          }
 
           // Extra upward boost if hitting top dome
           if (ny < -0.4) {
@@ -1109,9 +2180,42 @@
           // Trigger soft-body squish wobble
           slime.triggerWobble(0.35);
 
-          // Particles splash
+          // Particles splash based on skin & texture
+          const splashColor = slime.isCustom ? (slime.customGrad ? slime.customGrad[1] : slime.customColor) : slime.skin.color;
           for (let p = 0; p < 8; p++) {
-            this.particles.push(new Particle(b.x, b.y, slime.skin.color, 4, nx * 4 + (Math.random() - 0.5) * 5, ny * 4 + (Math.random() - 0.5) * 5));
+            this.particles.push(new Particle(b.x, b.y, splashColor, 4, nx * 4 + (Math.random() - 0.5) * 5, ny * 4 + (Math.random() - 0.5) * 5));
+          }
+
+          // Special texture impact particles & sounds
+          if (slime.isCustom) {
+            if (slime.texture === 'cloud') {
+              for (let p = 0; p < 6; p++) {
+                this.particles.push(new Particle(b.x, b.y, 'rgba(255, 255, 255, 0.88)', 6 + Math.random() * 4, (Math.random() - 0.5) * 4, -1 - Math.random() * 3, 0.8, false));
+              }
+              if (window.slimeAudio) window.slimeAudio.playCloudPuff();
+            } else if (slime.texture === 'floam') {
+              const beads = ['#ff99c8', '#70e000', '#ffd166', '#00f5d4'];
+              for (let p = 0; p < 7; p++) {
+                this.particles.push(new Particle(b.x, b.y, beads[p % beads.length], 4.5, (Math.random() - 0.5) * 8, -2 - Math.random() * 5, 0.9, true));
+              }
+              if (window.slimeAudio) window.slimeAudio.playFoamCrunch();
+            } else if (slime.texture === 'glitter') {
+              for (let p = 0; p < 8; p++) {
+                this.particles.push(new Particle(b.x, b.y, '#fff3a8', 3.5, (Math.random() - 0.5) * 7, (Math.random() - 0.5) * 7, 0.7, false));
+              }
+            } else if (slime.stickiness >= 4) {
+              for (let p = 0; p < 6; p++) {
+                this.particles.push(new Particle(b.x, b.y, splashColor, 3.5, (Math.random() - 0.5) * 3, 1 + Math.random() * 4, 1.2, true));
+              }
+            }
+
+            if (window.slimeAudio) {
+              window.slimeAudio.playASMRSquish(slime.stickiness);
+            }
+          } else {
+            if (window.slimeAudio) {
+              window.slimeAudio.playSquish(Math.hypot(b.vx, b.vy));
+            }
           }
 
           // Increment rally & super meter
@@ -1120,10 +2224,8 @@
           slime.superMeter = Math.min(100, slime.superMeter + 25);
           this.updateSuperMeterUI();
 
-          // Sound
-          if (window.slimeAudio) {
-            window.slimeAudio.playSquish(Math.hypot(b.vx, b.vy));
-          }
+          // Reward coins for rally hit!
+          this.addCoins(2);
         }
       }
     }

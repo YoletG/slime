@@ -298,6 +298,109 @@ class SlimeAudio {
 
     noise.start(now);
   }
+
+  // ASMR Interactive Slime Poke / Squish Sound
+  playASMRSquish(stickiness = 3) {
+    if (this.muted || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    // Stickiness alters pitch sweep and duration: higher stickiness = lower gooier suction pop
+    const baseFreq = Math.max(90, 240 - stickiness * 28);
+    osc.type = stickiness > 3 ? 'sawtooth' : 'triangle';
+    osc.frequency.setValueAtTime(baseFreq, now);
+    osc.frequency.exponentialRampToValueAtTime(baseFreq * (1.2 + stickiness * 0.2), now + 0.04);
+    osc.frequency.exponentialRampToValueAtTime(70, now + 0.12 + stickiness * 0.02);
+
+    const vol = Math.min(0.5, 0.25 + stickiness * 0.05);
+    gain.gain.setValueAtTime(vol, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.14 + stickiness * 0.02);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.18 + stickiness * 0.02);
+
+    // Wet squishy pop noise
+    this.playNoise(0.05 + stickiness * 0.015, 0.25, 900 - stickiness * 80);
+  }
+
+  // Coin earned chime
+  playCoinSound() {
+    if (this.muted || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(987.77, now); // B5
+    osc.frequency.setValueAtTime(1318.51, now + 0.08); // E6
+
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.28);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.3);
+  }
+
+  // Purchase unlocked fanfare
+  playBuySound() {
+    if (this.muted || !this.ctx) return;
+    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+    notes.forEach((freq, idx) => {
+      setTimeout(() => {
+        if (!this.ctx || this.muted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      }, idx * 60);
+    });
+  }
+
+  // Floam crunchy bubbly sound
+  playFoamCrunch() {
+    if (this.muted || !this.ctx) return;
+    for (let i = 0; i < 4; i++) {
+      setTimeout(() => {
+        this.playNoise(0.03, 0.2, 1400 + Math.random() * 800);
+      }, i * 25);
+    }
+  }
+
+  // Cloud Slime soft airy puff sound
+  playCloudPuff() {
+    if (this.muted || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(180, now + 0.16);
+
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.2);
+    this.playNoise(0.08, 0.15, 600);
+  }
 }
 
 window.slimeAudio = new SlimeAudio();

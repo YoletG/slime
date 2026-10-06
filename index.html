@@ -20,7 +20,16 @@
       </div>
 
       <div class="header-right">
+        <!-- Slime Coins Currency Badge -->
+        <div class="coins-badge" id="coinsBadge" title="Slime Coins earned from rallies & wins">
+          <span class="coin-icon">🪙</span>
+          <span class="coins-val" id="coinsVal">200</span>
+        </div>
+
         <div class="controls-bar">
+          <!-- Slime Maker & Texture Shop Button -->
+          <button id="slimeMakerBtn" class="btn btn-maker" title="Make Custom Slime & Buy Textures">🧪 Slime Lab</button>
+
           <!-- Game Mode Switcher -->
           <button id="modeBtn" class="btn btn-mode" title="Switch Game Mode">🏐 Volleyball</button>
           
@@ -162,6 +171,89 @@
       <!-- Sticky Modal Footer -->
       <div class="skins-modal-footer">
         <button id="closeSkinsBtn" class="btn btn-secondary">Back to Game</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slime Lab Modal (Make Slime & Buy Textures) -->
+  <div id="slimeLabModal" class="skins-modal-backdrop hidden" aria-modal="true" role="dialog">
+    <div class="overlay-card slime-lab-card" id="slimeLabCard">
+      <!-- Quick Exit '✕' Button -->
+      <button id="closeLabXBtn" class="btn-close-x" title="Close Slime Lab (Esc)">✕</button>
+
+      <!-- Modal Tabs Header -->
+      <div class="lab-modal-header">
+        <div class="lab-tabs">
+          <button id="tabMakerBtn" class="lab-tab-btn active">🧪 Make Slime</button>
+          <button id="tabTexturesBtn" class="lab-tab-btn">🛍️ Slime Textures</button>
+        </div>
+        <div class="coins-badge lab-coins">
+          <span>🪙</span>
+          <strong id="labCoinsVal">200</strong>
+        </div>
+      </div>
+
+      <!-- Tab 1: Make Slime (Color, Stickiness & Poke/Squish Bowl) -->
+      <div id="tabMakerContent" class="lab-tab-content">
+        <div class="slime-maker-layout">
+          <!-- Left: Squish & Poke Live Canvas Bowl -->
+          <div class="maker-bowl-box">
+            <div class="bowl-label">🖐️ Interactive Squish Bowl (Poke, drag & test!)</div>
+            <div class="canvas-bowl-container">
+              <canvas id="slimePreviewCanvas" width="280" height="180"></canvas>
+            </div>
+            <div class="texture-active-label" id="activeTextureLabel">Texture: <strong>Classic Jelly</strong></div>
+          </div>
+
+          <!-- Right: Slime Controls (Color, Stickiness) -->
+          <div class="maker-controls-box">
+            <!-- Color Selector -->
+            <div class="maker-control-section">
+              <label class="control-label">🎨 Slime Color:</label>
+              <div class="color-palette" id="colorPalette">
+                <!-- Color dots inserted by game.js -->
+              </div>
+              <div class="custom-color-row">
+                <span>Custom Tint:</span>
+                <input type="color" id="customColorPicker" value="#38b000" title="Choose any custom color">
+              </div>
+            </div>
+
+            <!-- Stickiness Slider -->
+            <div class="maker-control-section">
+              <div class="stickiness-header">
+                <label class="control-label">🍯 Stickiness:</label>
+                <span id="stickinessValueLabel" class="stickiness-badge">Level 3: Balanced</span>
+              </div>
+              <input type="range" id="stickinessSlider" min="1" max="5" value="3" class="arcade-slider">
+              <div class="stickiness-trait-desc" id="stickinessTraitDesc">
+                Balanced grip & bounce. Good for both spikes and rallies.
+              </div>
+            </div>
+
+            <!-- Equip Custom Slime Button -->
+            <button id="equipCustomSlimeBtn" class="btn btn-primary btn-equip-custom">
+              ✓ Save & Equip My Slime
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Buy Slime Textures (Cloud Slime, Floam, Butter, etc.) -->
+      <div id="tabTexturesContent" class="lab-tab-content hidden">
+        <div class="textures-intro">
+          <p>Unlock premium sensory slime textures! Each has unique visual squish effects, particle emissions, and ASMR sounds.</p>
+        </div>
+        <div class="textures-grid-wrapper">
+          <div class="textures-grid" id="texturesGrid">
+            <!-- Dynamically populated by game.js -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Sticky Footer -->
+      <div class="skins-modal-footer">
+        <button id="closeLabBtn" class="btn btn-secondary">Back to Game</button>
       </div>
     </div>
   </div>

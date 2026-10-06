@@ -972,6 +972,422 @@ canvas#gameCanvas {
 }
 
 /* ========================================================
+   Slime Coins & Make Slime Button
+   ======================================================== */
+
+.coins-badge {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(180deg, #fff785 0%, #ffde2e 20%, #fec614 65%, #f57f17 100%);
+  border: 2.5px solid #b85000;
+  padding: 5px 14px;
+  border-radius: 9999px;
+  font-family: var(--font-display);
+  font-size: clamp(0.82rem, 1.8vh, 0.95rem);
+  color: #ffffff;
+  box-shadow: 
+    0 4px 0 #732600,
+    0 6px 12px rgba(0, 0, 0, 0.35),
+    inset 0 2px 1px rgba(255, 255, 255, 0.85);
+  text-shadow: 
+    -1.2px -1.2px 0 #4a154b,
+     1.2px -1.2px 0 #4a154b,
+    -1.2px  1.2px 0 #4a154b,
+     1.2px  1.2px 0 #4a154b,
+     0 2px 0 #280526;
+  -webkit-text-stroke: 0.6px #4a154b;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.coins-badge::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 6px;
+  right: 6px;
+  height: 40%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.2) 80%, rgba(255, 255, 255, 0) 100%);
+  border-radius: 9999px 9999px 20px 20px;
+  pointer-events: none;
+}
+
+.coins-badge.bump {
+  animation: coinPop 0.35s ease;
+}
+
+@keyframes coinPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); box-shadow: 0 6px 0 #732600, 0 0 20px rgba(255, 190, 11, 0.8); }
+  100% { transform: scale(1); }
+}
+
+.coin-icon {
+  font-size: 1.1rem;
+}
+
+/* 🧪 Slime Lab / Maker Button (Emerald Lime Arcade Pill) */
+.btn-maker {
+  background: linear-gradient(180deg, #9ef01a 0%, #70e000 22%, #38b000 68%, #007200 100%);
+  border-color: #004b23;
+  box-shadow: 
+    0 4px 0 #002914,
+    0 6px 14px rgba(0, 75, 35, 0.45),
+    inset 0 2px 2px rgba(255, 255, 255, 0.85);
+  text-shadow: 
+    -1.5px -1.5px 0 #002914,
+     1.5px -1.5px 0 #002914,
+    -1.5px  1.5px 0 #002914,
+     1.5px  1.5px 0 #002914,
+     0 2.5px 0 #000;
+  -webkit-text-stroke: 0.8px #002914;
+}
+
+.btn-maker:hover {
+  box-shadow: 0 6px 0 #002914, 0 10px 18px rgba(0, 75, 35, 0.55);
+}
+
+.btn-maker:active {
+  box-shadow: 0 1px 0 #002914;
+}
+
+/* ========================================================
+   Slime Lab & Texture Shop Modal Styling
+   ======================================================== */
+
+.slime-lab-card {
+  max-width: 860px;
+  width: 100%;
+  max-height: min(94vh, 94dvh);
+  display: flex;
+  flex-direction: column;
+  padding: clamp(14px, 2vh, 22px) clamp(16px, 2.2vw, 24px) clamp(10px, 1.6vh, 16px);
+  gap: clamp(8px, 1.4vh, 14px);
+  overflow: hidden;
+}
+
+.lab-modal-header {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-right: 42px;
+}
+
+.lab-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.lab-tab-btn {
+  font-family: var(--font-display);
+  font-size: clamp(0.85rem, 1.8vh, 1.05rem);
+  padding: 6px 16px;
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(15, 32, 54, 0.8);
+  color: #cfd8dc;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.lab-tab-btn:hover {
+  background: rgba(255, 190, 11, 0.15);
+  border-color: #ffbe0b;
+  color: #fff;
+}
+
+.lab-tab-btn.active {
+  background: linear-gradient(180deg, #fff785, #fec614);
+  border-color: #b85000;
+  color: #1e1e24;
+  box-shadow: 0 3px 0 #732600;
+  font-weight: 700;
+}
+
+.lab-tab-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+}
+
+.lab-tab-content.hidden {
+  display: none;
+}
+
+/* Slime Maker Layout (Two Column) */
+.slime-maker-layout {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: stretch;
+  width: 100%;
+}
+
+.maker-bowl-box {
+  flex: 1 1 280px;
+  background: rgba(10, 22, 38, 0.85);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 18px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.bowl-label {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  color: #ffd166;
+  letter-spacing: 0.5px;
+}
+
+.canvas-bowl-container {
+  width: 100%;
+  aspect-ratio: 280 / 180;
+  background: radial-gradient(circle at 50% 40%, #1e3a5f 0%, #0d1e33 80%);
+  border-radius: 14px;
+  border: 2px solid rgba(255, 190, 11, 0.3);
+  overflow: hidden;
+  box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#slimePreviewCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+}
+
+#slimePreviewCanvas:active {
+  cursor: grabbing;
+}
+
+.texture-active-label {
+  font-size: 0.78rem;
+  color: #b0bec5;
+}
+
+.texture-active-label strong {
+  color: #fff;
+}
+
+/* Right Maker Controls */
+.maker-controls-box {
+  flex: 1 1 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.maker-control-section {
+  background: rgba(10, 22, 38, 0.7);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.control-label {
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  color: #fff;
+  letter-spacing: 0.4px;
+}
+
+.color-palette {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2.5px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.color-swatch:hover {
+  transform: scale(1.15);
+  border-color: #fff;
+}
+
+.color-swatch.active {
+  transform: scale(1.22);
+  border-color: #ffbe0b;
+  box-shadow: 0 0 12px rgba(255, 190, 11, 0.8);
+}
+
+.custom-color-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #b0bec5;
+}
+
+#customColorPicker {
+  width: 34px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+}
+
+.stickiness-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stickiness-badge {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  color: #ffd166;
+  background: rgba(255, 209, 102, 0.15);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 209, 102, 0.3);
+}
+
+.arcade-slider {
+  width: 100%;
+  accent-color: #ffbe0b;
+  height: 8px;
+  cursor: pointer;
+}
+
+.stickiness-trait-desc {
+  font-size: 0.76rem;
+  color: #cfd8dc;
+  line-height: 1.3;
+}
+
+.btn-equip-custom {
+  width: 100%;
+  padding: 10px 20px;
+  font-size: 1.05rem;
+}
+
+/* Texture Shop Tab */
+.textures-intro {
+  margin-bottom: 10px;
+  font-size: 0.82rem;
+  color: #cfd8dc;
+  text-align: center;
+}
+
+.textures-grid-wrapper {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 4px 6px;
+}
+
+.textures-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.texture-card {
+  background: rgba(15, 32, 54, 0.85);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+}
+
+.texture-card:hover {
+  transform: translateY(-2px);
+  border-color: #ffbe0b;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+}
+
+.texture-card.equipped {
+  border-color: #ffbe0b;
+  background: rgba(255, 190, 11, 0.12);
+  box-shadow: 0 0 15px rgba(255, 190, 11, 0.35);
+}
+
+.texture-preview-canvas {
+  width: 80px;
+  height: 55px;
+  display: block;
+}
+
+.texture-name {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: #fff;
+  text-align: center;
+}
+
+.texture-desc {
+  font-size: 0.72rem;
+  color: #b0bec5;
+  text-align: center;
+  line-height: 1.25;
+  min-height: 28px;
+}
+
+.texture-price-tag {
+  font-size: 0.75rem;
+  font-family: var(--font-display);
+  color: #ffd166;
+  background: rgba(255, 209, 102, 0.15);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 209, 102, 0.3);
+}
+
+.btn-texture-action {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  border-radius: 9999px;
+}
+
+.btn-texture-buy {
+  background: linear-gradient(180deg, #fff785, #ffde2e 20%, #fec614 65%, #f57f17 100%);
+  border: 2px solid #b85000;
+  color: #fff;
+  box-shadow: 0 3px 0 #732600;
+  text-shadow: -1px -1px 0 #4a154b, 1px -1px 0 #4a154b, -1px 1px 0 #4a154b, 1px 1px 0 #4a154b;
+}
+
+.btn-texture-equip {
+  background: linear-gradient(180deg, #95d5b2, #52b788 22%, #2d6a4f 68%, #1b4332 100%);
+  border: 2px solid #081c15;
+  color: #fff;
+  box-shadow: 0 3px 0 #081c15;
+}
+
+/* ========================================================
    Adaptive Media Queries (Responsive Screen Warper)
    ======================================================== */
 
