@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Slime Arcade 🟢🏐⚽</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Lilita+One&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="game-container">
+    <!-- Header Controls -->
+    <header class="game-header">
+      <div class="title-container">
+        <span class="slime-icon">🟢</span>
+        <h1>Slime Arcade</h1>
+        <span class="slime-icon">🏐</span>
+      </div>
+
+      <div class="header-right">
+        <div class="controls-bar">
+          <!-- Game Mode Switcher -->
+          <button id="modeBtn" class="btn btn-mode" title="Switch Game Mode">🏐 Volleyball</button>
+          
+          <!-- Players Mode Switcher (1P vs CPU / 2P Local) -->
+          <button id="playersBtn" class="btn btn-secondary" title="Switch to 2 Players Local">👤 1P vs CPU</button>
+
+          <!-- Bot Difficulty -->
+          <div class="difficulty-select" id="diffContainer">
+            <label for="difficulty">Bot:</label>
+            <select id="difficulty">
+              <option value="easy">Casual Jelly</option>
+              <option value="medium" selected>Slime Pro</option>
+              <option value="hard">Jiggle Master</option>
+            </select>
+          </div>
+
+          <!-- Wardrobe / Skins -->
+          <button id="skinsBtn" class="btn btn-skins" title="Choose Slime Character">🎨 Slimes</button>
+
+          <!-- Sound & Pause -->
+          <button id="soundToggle" class="btn btn-sound" title="Toggle Sound (M)">🔊 Sound: ON</button>
+          <button id="pauseBtn" class="btn btn-pause" title="Pause Game (P)">⏸ Pause</button>
+          <button id="restartBtn" class="btn btn-secondary" title="Restart Match (R)">🔄 Restart</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Scoreboard & Super Meters -->
+    <div class="scoreboard">
+      <!-- Player 1 Card -->
+      <div class="team-card team-p1">
+        <div class="team-info">
+          <span class="team-avatar" id="p1Avatar">🟢</span>
+          <span class="team-name" id="p1Name">Player 1</span>
+        </div>
+        <span id="p1Score" class="score-num">0</span>
+      </div>
+
+      <!-- Center HUD -->
+      <div class="center-hud">
+        <div class="mode-badge" id="modeBadge">VOLLEYBALL</div>
+        <div class="rally-pill">
+          <span class="rally-label">RALLY</span>
+          <span id="rallyCount" class="rally-val">0</span>
+        </div>
+      </div>
+
+      <!-- Player 2 / Bot Card -->
+      <div class="team-card team-bot">
+        <span id="p2Score" class="score-num">0</span>
+        <div class="team-info">
+          <span class="team-name" id="p2Name">Robo-Slime</span>
+          <span class="team-avatar" id="p2Avatar">🤖</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Super Power Meters -->
+    <div class="power-meters">
+      <div class="power-bar-wrapper">
+        <span>⚡ P1 SUPER</span>
+        <div class="power-bar">
+          <div id="p1PowerFill" class="power-fill"></div>
+        </div>
+      </div>
+      <div class="power-bar-wrapper">
+        <div class="power-bar">
+          <div id="p2PowerFill" class="power-fill"></div>
+        </div>
+        <span>P2 SUPER ⚡</span>
+      </div>
+    </div>
+
+    <!-- Canvas Stage (Dynamically fits canvas into available viewport space) -->
+    <div class="canvas-stage" id="canvasStage">
+      <div class="canvas-wrapper" id="canvasWrapper">
+        <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+        <!-- Touch Controls for Mobile/Tablet -->
+        <div class="touch-controls" id="touchControls">
+          <div class="touch-cluster">
+            <button class="touch-btn" id="btnTouchLeft" aria-label="Left">◀</button>
+            <button class="touch-btn" id="btnTouchRight" aria-label="Right">▶</button>
+          </div>
+          <div class="touch-cluster">
+            <button class="touch-btn" id="btnTouchJump" aria-label="Jump">▲</button>
+            <button class="touch-btn btn-touch-spike" id="btnTouchSpike" aria-label="Super Spike">⚡</button>
+          </div>
+        </div>
+
+        <!-- Overlay for Start / Pause / Win -->
+        <div id="gameOverlay" class="game-overlay">
+          <div class="overlay-card" id="overlayCard">
+            <div id="overlayMascot" class="overlay-mascot">🟢</div>
+            <h2 id="overlayTitle">Slime Arcade</h2>
+            <p id="overlayMessage">Bounce, spike, and wobble your way to victory! First to 7 points wins the match.</p>
+
+            <div class="controls-hint-box" id="controlsHint">
+              <p><strong>Controls (1P):</strong> <strong>A / D</strong> or <strong>← / →</strong> to move · <strong>W / ↑</strong> to Jump · <strong>Space</strong> for Super Spike!</p>
+              <p style="margin-top: 4px; font-size: 0.76rem; color: #90e0ef;"><strong>2-Player Mode:</strong> P1: W/A/D/Space · P2: Arrow Keys + Enter</p>
+            </div>
+
+            <div class="overlay-actions">
+              <button id="actionBtn" class="btn btn-primary">Start</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer Help Tags -->
+    <footer class="game-footer">
+      <div class="instruction-tag">🎮 <span><strong>W/A/D</strong> or <strong>Arrows</strong> to move & jump</span></div>
+      <div class="instruction-tag">⚡ <span><strong>Space</strong> or <strong>Enter</strong> to Super Spike</span></div>
+      <div class="instruction-tag">🏐 <span>Volleyball & ⚽ Soccer Modes</span></div>
+      <div class="instruction-tag">🔄 <span><strong>R</strong> to restart · <strong>P</strong> to pause</span></div>
+      <div class="instruction-tag">✨ <span>Wobbly Soft-Body Physics</span></div>
+    </footer>
+  </div>
+
+  <!-- Slime Wardrobe / Character Selector Modal (Full-Screen Backdrop) -->
+  <div id="skinsModal" class="skins-modal-backdrop hidden" aria-modal="true" role="dialog">
+    <div class="overlay-card skins-card" id="skinsCard">
+      <!-- Quick Exit '✕' Button -->
+      <button id="closeSkinsXBtn" class="btn-close-x" title="Close Wardrobe (Esc)">✕</button>
+
+      <div class="skins-modal-header">
+        <h2>🎨 Slime Roster</h2>
+        <p>Pick your slime fighter! Each has unique squish physics and super power.</p>
+      </div>
+
+      <!-- Scrollable Grid Container -->
+      <div class="skins-grid-wrapper">
+        <div class="skins-grid" id="skinsGrid">
+          <!-- Dynamically populated by game.js -->
+        </div>
+      </div>
+
+      <!-- Sticky Modal Footer -->
+      <div class="skins-modal-footer">
+        <button id="closeSkinsBtn" class="btn btn-secondary">Back to Game</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="audio.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
