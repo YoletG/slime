@@ -1448,3 +1448,352 @@ canvas#gameCanvas {
     display: none;
   }
 }
+
+/* ========================================================
+   Slime Studio - Dedicated ASMR Slime Making Styling
+   ======================================================== */
+
+/* Header Slime Profile Chip */
+.active-slime-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 32, 54, 0.85);
+  border: 1.5px solid rgba(255, 190, 11, 0.45);
+  padding: 4px 14px;
+  border-radius: 9999px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  transition: all 0.2s ease;
+}
+
+.active-slime-chip:hover {
+  border-color: #ffbe0b;
+  transform: translateY(-1px);
+}
+
+.chip-avatar {
+  font-size: 1.35rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.chip-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.chip-text strong {
+  font-family: var(--font-display);
+  font-size: clamp(0.82rem, 1.6vh, 0.95rem);
+  color: #fff;
+  letter-spacing: 0.3px;
+}
+
+.chip-text span {
+  font-size: clamp(0.68rem, 1.3vh, 0.76rem);
+  color: #ffd166;
+  line-height: 1.1;
+}
+
+/* Floating Status HUD Pill on Stage */
+.slime-hud-pill {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(8, 20, 36, 0.88);
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  padding: 6px 18px;
+  border-radius: 9999px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  z-index: 10;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.hud-feedback {
+  font-family: var(--font-display);
+  font-size: clamp(0.78rem, 1.6vh, 0.92rem);
+  color: #fff;
+  letter-spacing: 0.4px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.hud-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 0.72rem;
+  color: #b0bec5;
+}
+
+.hud-stat strong {
+  color: #ffd166;
+}
+
+/* Floating Quick Tools Dock at Bottom of Canvas */
+.floating-toolbar {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(8, 20, 36, 0.92);
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 10;
+  max-width: 96%;
+  overflow-x: auto;
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.tool-section-label {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  color: #ffd166;
+  letter-spacing: 0.4px;
+}
+
+.toolbar-divider {
+  width: 1.5px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.18);
+  flex-shrink: 0;
+}
+
+/* Quick Stickiness Buttons (1-5) */
+.quick-stick-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.quick-stick-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.quick-stick-btn:hover {
+  background: rgba(255, 190, 11, 0.3);
+  border-color: #ffbe0b;
+  transform: scale(1.12);
+}
+
+.quick-stick-btn.active {
+  background: linear-gradient(180deg, #fff785, #ffde2e 30%, #fec614 70%, #f57f17 100%);
+  color: #1e1e24;
+  border-color: #b85000;
+  box-shadow: 0 0 10px rgba(255, 190, 11, 0.8);
+  transform: scale(1.18);
+}
+
+/* Quick Colors Row */
+.quick-colors-row {
+  display: flex;
+  gap: 5px;
+}
+
+.quick-color-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.quick-color-dot:hover {
+  transform: scale(1.22);
+  border-color: #fff;
+}
+
+.quick-color-dot.active {
+  border-color: #fff;
+  transform: scale(1.28);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+
+/* Tool Mode Buttons */
+.tool-mode-buttons {
+  display: flex;
+  gap: 5px;
+}
+
+.tool-btn {
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #cfd8dc;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.tool-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.tool-btn.active {
+  background: linear-gradient(180deg, #95d5b2, #52b788 25%, #2d6a4f 75%, #1b4332 100%);
+  color: #fff;
+  border-color: #081c15;
+  box-shadow: 0 0 10px rgba(82, 183, 136, 0.6);
+  font-weight: 700;
+}
+
+/* Texture Selection Row in Maker */
+.texture-select-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.texture-select-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.texture-select-btn:hover {
+  border-color: #ffbe0b;
+  background: rgba(255, 190, 11, 0.15);
+}
+
+.texture-select-btn.active {
+  background: linear-gradient(180deg, #fff785, #fec614);
+  color: #1e1e24;
+  border-color: #b85000;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  font-weight: 700;
+}
+
+/* Charms Chips in Maker */
+.charms-picker-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.charm-chip {
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: #cfd8dc;
+  font-family: var(--font-display);
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.charm-chip:hover {
+  border-color: #fff;
+  color: #fff;
+}
+
+.charm-chip.active {
+  background: rgba(255, 190, 11, 0.25);
+  border-color: #ffbe0b;
+  color: #ffd166;
+  font-weight: 700;
+}
+
+.swirl-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: #ffd166;
+  cursor: pointer;
+}
+
+.stickiness-preview-tag {
+  font-size: 0.76rem;
+  color: #ffd166;
+  text-align: center;
+}
+
+/* Button Shop Variation */
+.btn-shop {
+  background: linear-gradient(180deg, #ff99c8 0%, #ff70a6 22%, #ff007f 68%, #a00050 100%);
+  border-color: #700035;
+  box-shadow: 0 4px 0 #500025, 0 6px 14px rgba(255, 0, 127, 0.45), inset 0 2px 2px rgba(255, 255, 255, 0.85);
+  text-shadow: -1px -1px 0 #500025, 1px -1px 0 #500025, -1px 1px 0 #500025, 1px 1px 0 #500025;
+}
+
+.btn-shop:hover {
+  box-shadow: 0 6px 0 #500025, 0 10px 18px rgba(255, 0, 127, 0.55);
+}
+
+.btn-shop:active {
+  box-shadow: 0 1px 0 #500025;
+}
+
+/* Floating Coin Text Animation */
+.floating-coin-popup {
+  position: absolute;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: #ffd166;
+  text-shadow: -1px -1px 0 #732600, 1px -1px 0 #732600, -1px 1px 0 #732600, 1px 1px 0 #732600;
+  pointer-events: none;
+  animation: floatUpFade 0.75s ease-out forwards;
+  z-index: 20;
+}
+
+@keyframes floatUpFade {
+  0% { transform: translateY(0) scale(0.8); opacity: 1; }
+  50% { transform: translateY(-22px) scale(1.15); opacity: 1; }
+  100% { transform: translateY(-44px) scale(1); opacity: 0; }
+}
+
+canvas#slimeCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+}
+
+canvas#slimeCanvas:active {
+  cursor: grabbing;
+}

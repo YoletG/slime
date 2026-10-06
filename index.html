@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Slime Arcade 🟢🏐⚽</title>
+  <title>Slime Studio 🧪✨ The Tactile ASMR Slime Maker</title>
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,246 +14,223 @@
     <!-- Header Controls -->
     <header class="game-header">
       <div class="title-container">
-        <span class="slime-icon">🟢</span>
-        <h1>Slime Arcade</h1>
-        <span class="slime-icon">🏐</span>
+        <span class="slime-icon">🧪</span>
+        <h1>Slime Studio</h1>
+        <span class="slime-icon">✨</span>
+      </div>
+
+      <!-- Active Slime Profile Badge -->
+      <div class="active-slime-chip" id="activeSlimeChip" title="Currently Active Slime">
+        <span class="chip-avatar" id="activeSlimeIcon">☁️</span>
+        <div class="chip-text">
+          <strong id="activeSlimeName">Cloud Slime ☁️</strong>
+          <span id="activeStickinessTag">Stickiness: Level 3 (1.5s Hover Stick)</span>
+        </div>
       </div>
 
       <div class="header-right">
         <!-- Slime Coins Currency Badge -->
-        <div class="coins-badge" id="coinsBadge" title="Slime Coins earned from rallies & wins">
+        <div class="coins-badge" id="coinsBadge" title="Slime Coins earned from squishing, stretching & crafting">
           <span class="coin-icon">🪙</span>
-          <span class="coins-val" id="coinsVal">200</span>
+          <span class="coins-val" id="coinsVal">250</span>
         </div>
 
         <div class="controls-bar">
-          <!-- Slime Maker & Texture Shop Button -->
-          <button id="slimeMakerBtn" class="btn btn-maker" title="Make Custom Slime & Buy Textures">🧪 Slime Lab</button>
+          <!-- Slime Maker & Texture Shop Buttons -->
+          <button id="openMakerBtn" class="btn btn-maker" title="Make a New Custom Slime">🧪 Make Slime</button>
+          <button id="openShopBtn" class="btn btn-shop" title="Buy Slime Textures">🛍️ Texture Shop</button>
 
-          <!-- Game Mode Switcher -->
-          <button id="modeBtn" class="btn btn-mode" title="Switch Game Mode">🏐 Volleyball</button>
-          
-          <!-- Players Mode Switcher (1P vs CPU / 2P Local) -->
-          <button id="playersBtn" class="btn btn-secondary" title="Switch to 2 Players Local">👤 1P vs CPU</button>
-
-          <!-- Bot Difficulty -->
-          <div class="difficulty-select" id="diffContainer">
-            <label for="difficulty">Bot:</label>
-            <select id="difficulty">
-              <option value="easy">Casual Jelly</option>
-              <option value="medium" selected>Slime Pro</option>
-              <option value="hard">Jiggle Master</option>
-            </select>
-          </div>
-
-          <!-- Wardrobe / Skins -->
-          <button id="skinsBtn" class="btn btn-skins" title="Choose Slime Character">🎨 Slimes</button>
-
-          <!-- Sound & Pause -->
+          <!-- Audio & Utility Controls -->
           <button id="soundToggle" class="btn btn-sound" title="Toggle Sound (M)">🔊 Sound: ON</button>
-          <button id="pauseBtn" class="btn btn-pause" title="Pause Game (P)">⏸ Pause</button>
-          <button id="restartBtn" class="btn btn-secondary" title="Restart Match (R)">🔄 Restart</button>
+          <button id="resetShapeBtn" class="btn btn-secondary" title="Center & Smooth Slime (R)">🔄 Center</button>
         </div>
       </div>
     </header>
 
-    <!-- Scoreboard & Super Meters -->
-    <div class="scoreboard">
-      <!-- Player 1 Card -->
-      <div class="team-card team-p1">
-        <div class="team-info">
-          <span class="team-avatar" id="p1Avatar">🟢</span>
-          <span class="team-name" id="p1Name">Player 1</span>
-        </div>
-        <span id="p1Score" class="score-num">0</span>
-      </div>
-
-      <!-- Center HUD -->
-      <div class="center-hud">
-        <div class="mode-badge" id="modeBadge">VOLLEYBALL</div>
-        <div class="rally-pill">
-          <span class="rally-label">RALLY</span>
-          <span id="rallyCount" class="rally-val">0</span>
-        </div>
-      </div>
-
-      <!-- Player 2 / Bot Card -->
-      <div class="team-card team-bot">
-        <span id="p2Score" class="score-num">0</span>
-        <div class="team-info">
-          <span class="team-name" id="p2Name">Robo-Slime</span>
-          <span class="team-avatar" id="p2Avatar">🤖</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Super Power Meters -->
-    <div class="power-meters">
-      <div class="power-bar-wrapper">
-        <span>⚡ P1 SUPER</span>
-        <div class="power-bar">
-          <div id="p1PowerFill" class="power-fill"></div>
-        </div>
-      </div>
-      <div class="power-bar-wrapper">
-        <div class="power-bar">
-          <div id="p2PowerFill" class="power-fill"></div>
-        </div>
-        <span>P2 SUPER ⚡</span>
-      </div>
-    </div>
-
     <!-- Canvas Stage (Dynamically fits canvas into available viewport space) -->
     <div class="canvas-stage" id="canvasStage">
       <div class="canvas-wrapper" id="canvasWrapper">
-        <canvas id="gameCanvas" width="960" height="540"></canvas>
+        <canvas id="slimeCanvas" width="960" height="540"></canvas>
 
-        <!-- Touch Controls for Mobile/Tablet -->
-        <div class="touch-controls" id="touchControls">
-          <div class="touch-cluster">
-            <button class="touch-btn" id="btnTouchLeft" aria-label="Left">◀</button>
-            <button class="touch-btn" id="btnTouchRight" aria-label="Right">▶</button>
-          </div>
-          <div class="touch-cluster">
-            <button class="touch-btn" id="btnTouchJump" aria-label="Jump">▲</button>
-            <button class="touch-btn btn-touch-spike" id="btnTouchSpike" aria-label="Super Spike">⚡</button>
+        <!-- Floating HUD Pill (Tactile Status & Stats) -->
+        <div class="slime-hud-pill" id="slimeHudPill">
+          <div class="hud-feedback" id="hudActionFeedback">🖐️ Hover to stick · Click to squish · Drag to stretch!</div>
+          <div class="hud-stats-row">
+            <span class="hud-stat">💥 Squishes: <strong id="statSquishes">0</strong></span>
+            <span class="hud-stat">➰ Stretches: <strong id="statStretches">0</strong></span>
+            <span class="hud-stat" id="statHoverStatus">🍯 Stickiness: <strong id="hudStickinessLabel">Level 3 (1.5s)</strong></span>
           </div>
         </div>
 
-        <!-- Overlay for Start / Pause / Win -->
-        <div id="gameOverlay" class="game-overlay">
-          <div class="overlay-card" id="overlayCard">
-            <div id="overlayMascot" class="overlay-mascot">🟢</div>
-            <h2 id="overlayTitle">Slime Arcade</h2>
-            <p id="overlayMessage">Bounce, spike, and wobble your way to victory! First to 7 points wins the match.</p>
-
-            <div class="controls-hint-box" id="controlsHint">
-              <p><strong>Controls (1P):</strong> <strong>A / D</strong> or <strong>← / →</strong> to move · <strong>W / ↑</strong> to Jump · <strong>Space</strong> for Super Spike!</p>
-              <p style="margin-top: 4px; font-size: 0.76rem; color: #90e0ef;"><strong>2-Player Mode:</strong> P1: W/A/D/Space · P2: Arrow Keys + Enter</p>
+        <!-- Floating Quick Tools Dock -->
+        <div class="floating-toolbar" id="floatingToolbar">
+          <!-- Stickiness Quick Dial -->
+          <div class="toolbar-section">
+            <span class="tool-section-label">🍯 Stickiness:</span>
+            <div class="quick-stick-buttons">
+              <button class="quick-stick-btn" data-level="1" title="Level 1: Ultra Slick (0.25s stick hold)">1</button>
+              <button class="quick-stick-btn" data-level="2" title="Level 2: Light Gloss (0.7s stick hold)">2</button>
+              <button class="quick-stick-btn active" data-level="3" title="Level 3: Balanced (1.5s stick hold)">3</button>
+              <button class="quick-stick-btn" data-level="4" title="Level 4: Gooey Cushion (2.8s stick hold)">4</button>
+              <button class="quick-stick-btn" data-level="5" title="Level 5: Super Sticky Taffy (4.5s stick hold)">5</button>
             </div>
+          </div>
 
-            <div class="overlay-actions">
-              <button id="actionBtn" class="btn btn-primary">Start</button>
+          <div class="toolbar-divider"></div>
+
+          <!-- Quick Palette -->
+          <div class="toolbar-section">
+            <span class="tool-section-label">🎨 Tint:</span>
+            <div class="quick-colors-row" id="quickColorsRow">
+              <!-- Dynamically populated by game.js -->
+            </div>
+          </div>
+
+          <div class="toolbar-divider"></div>
+
+          <!-- Action Modes -->
+          <div class="toolbar-section">
+            <span class="tool-section-label">🖐️ Tool:</span>
+            <div class="tool-mode-buttons">
+              <button class="tool-btn active" id="toolPokeBtn" title="Poke, squish, and stretch putty">🖐️ Poke & Drag</button>
+              <button class="tool-btn" id="toolSwirlBtn" title="Swirl and knead with spatula">🥄 Swirl</button>
+              <button class="tool-btn" id="toolGlitterBtn" title="Sprinkle glitter sparkles">✨ Glitter</button>
+              <button class="tool-btn" id="toolBubbleBtn" title="Blow and pop gooey bubbles">🫧 Bubbles</button>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Footer Help Tags -->
+    <!-- Footer Help & Shortcuts -->
     <footer class="game-footer">
-      <div class="instruction-tag">🎮 <span><strong>W/A/D</strong> or <strong>Arrows</strong> to move & jump</span></div>
-      <div class="instruction-tag">⚡ <span><strong>Space</strong> or <strong>Enter</strong> to Super Spike</span></div>
-      <div class="instruction-tag">🏐 <span>Volleyball & ⚽ Soccer Modes</span></div>
-      <div class="instruction-tag">🔄 <span><strong>R</strong> to restart · <strong>P</strong> to pause</span></div>
-      <div class="instruction-tag">✨ <span>Wobbly Soft-Body Physics</span></div>
+      <div class="instruction-tag">🖐️ <span><strong>Hover</strong> mouse to stick (releases based on stickiness!)</span></div>
+      <div class="instruction-tag">💥 <span><strong>Click</strong> to squish & ripple</span></div>
+      <div class="instruction-tag">➰ <span><strong>Click & Drag</strong> to stretch like putty</span></div>
+      <div class="instruction-tag">🍯 <span><strong>1–5 Keys</strong> change stickiness level</span></div>
+      <div class="instruction-tag">🧪 <span>Craft custom slimes with Cloud, Floam & Butter textures</span></div>
     </footer>
   </div>
 
-  <!-- Slime Wardrobe / Character Selector Modal (Full-Screen Backdrop) -->
-  <div id="skinsModal" class="skins-modal-backdrop hidden" aria-modal="true" role="dialog">
-    <div class="overlay-card skins-card" id="skinsCard">
+  <!-- Slime Maker Modal (Make Custom Slime) -->
+  <div id="slimeMakerModal" class="skins-modal-backdrop hidden" aria-modal="true" role="dialog">
+    <div class="overlay-card slime-lab-card" id="slimeMakerCard">
       <!-- Quick Exit '✕' Button -->
-      <button id="closeSkinsXBtn" class="btn-close-x" title="Close Wardrobe (Esc)">✕</button>
+      <button id="closeMakerXBtn" class="btn-close-x" title="Close Maker (Esc)">✕</button>
 
-      <div class="skins-modal-header">
-        <h2>🎨 Slime Roster</h2>
-        <p>Pick your slime fighter! Each has unique squish physics and super power.</p>
-      </div>
-
-      <!-- Scrollable Grid Container -->
-      <div class="skins-grid-wrapper">
-        <div class="skins-grid" id="skinsGrid">
-          <!-- Dynamically populated by game.js -->
-        </div>
-      </div>
-
-      <!-- Sticky Modal Footer -->
-      <div class="skins-modal-footer">
-        <button id="closeSkinsBtn" class="btn btn-secondary">Back to Game</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Slime Lab Modal (Make Slime & Buy Textures) -->
-  <div id="slimeLabModal" class="skins-modal-backdrop hidden" aria-modal="true" role="dialog">
-    <div class="overlay-card slime-lab-card" id="slimeLabCard">
-      <!-- Quick Exit '✕' Button -->
-      <button id="closeLabXBtn" class="btn-close-x" title="Close Slime Lab (Esc)">✕</button>
-
-      <!-- Modal Tabs Header -->
       <div class="lab-modal-header">
-        <div class="lab-tabs">
-          <button id="tabMakerBtn" class="lab-tab-btn active">🧪 Make Slime</button>
-          <button id="tabTexturesBtn" class="lab-tab-btn">🛍️ Slime Textures</button>
+        <div class="modal-title-box">
+          <h2>🧪 Slime Crafter Studio</h2>
+          <p>Mix your dream slime recipe! Customize texture, colors, stickiness, and toppings.</p>
         </div>
         <div class="coins-badge lab-coins">
           <span>🪙</span>
-          <strong id="labCoinsVal">200</strong>
+          <strong id="labCoinsVal">250</strong>
         </div>
       </div>
 
-      <!-- Tab 1: Make Slime (Color, Stickiness & Poke/Squish Bowl) -->
-      <div id="tabMakerContent" class="lab-tab-content">
-        <div class="slime-maker-layout">
-          <!-- Left: Squish & Poke Live Canvas Bowl -->
-          <div class="maker-bowl-box">
-            <div class="bowl-label">🖐️ Interactive Squish Bowl (Poke, drag & test!)</div>
-            <div class="canvas-bowl-container">
-              <canvas id="slimePreviewCanvas" width="280" height="180"></canvas>
-            </div>
-            <div class="texture-active-label" id="activeTextureLabel">Texture: <strong>Classic Jelly</strong></div>
+      <div class="slime-maker-layout">
+        <!-- Left: Interactive Preview Bowl -->
+        <div class="maker-bowl-box">
+          <div class="bowl-label">🥣 Live Recipe Bowl (Test squish & stretch!)</div>
+          <div class="canvas-bowl-container">
+            <canvas id="slimePreviewCanvas" width="280" height="180"></canvas>
           </div>
-
-          <!-- Right: Slime Controls (Color, Stickiness) -->
-          <div class="maker-controls-box">
-            <!-- Color Selector -->
-            <div class="maker-control-section">
-              <label class="control-label">🎨 Slime Color:</label>
-              <div class="color-palette" id="colorPalette">
-                <!-- Color dots inserted by game.js -->
-              </div>
-              <div class="custom-color-row">
-                <span>Custom Tint:</span>
-                <input type="color" id="customColorPicker" value="#38b000" title="Choose any custom color">
-              </div>
-            </div>
-
-            <!-- Stickiness Slider -->
-            <div class="maker-control-section">
-              <div class="stickiness-header">
-                <label class="control-label">🍯 Stickiness:</label>
-                <span id="stickinessValueLabel" class="stickiness-badge">Level 3: Balanced</span>
-              </div>
-              <input type="range" id="stickinessSlider" min="1" max="5" value="3" class="arcade-slider">
-              <div class="stickiness-trait-desc" id="stickinessTraitDesc">
-                Balanced grip & bounce. Good for both spikes and rallies.
-              </div>
-            </div>
-
-            <!-- Equip Custom Slime Button -->
-            <button id="equipCustomSlimeBtn" class="btn btn-primary btn-equip-custom">
-              ✓ Save & Equip My Slime
-            </button>
-          </div>
+          <div class="texture-active-label" id="activeTextureLabel">Texture: <strong>Cloud Slime ☁️</strong></div>
+          <div class="stickiness-preview-tag" id="stickinessPreviewTag">Hold Time: <strong>1.5s Hover Stick</strong></div>
         </div>
-      </div>
 
-      <!-- Tab 2: Buy Slime Textures (Cloud Slime, Floam, Butter, etc.) -->
-      <div id="tabTexturesContent" class="lab-tab-content hidden">
-        <div class="textures-intro">
-          <p>Unlock premium sensory slime textures! Each has unique visual squish effects, particle emissions, and ASMR sounds.</p>
-        </div>
-        <div class="textures-grid-wrapper">
-          <div class="textures-grid" id="texturesGrid">
-            <!-- Dynamically populated by game.js -->
+        <!-- Right: Recipe Controls -->
+        <div class="maker-controls-box">
+          <!-- Texture Selection -->
+          <div class="maker-control-section">
+            <label class="control-label">🛍️ Base Texture:</label>
+            <div class="texture-select-row" id="makerTextureSelectRow">
+              <!-- Dynamically populated by game.js -->
+            </div>
           </div>
+
+          <!-- Color Selector -->
+          <div class="maker-control-section">
+            <label class="control-label">🎨 Slime Color:</label>
+            <div class="color-palette" id="colorPalette">
+              <!-- Color dots inserted by game.js -->
+            </div>
+            <div class="custom-color-row">
+              <span>Custom Hex Tint:</span>
+              <input type="color" id="customColorPicker" value="#80deea" title="Choose any custom color">
+              <label class="swirl-toggle-label">
+                <input type="checkbox" id="dualSwirlToggle"> <span>Dual Color Swirl ✨</span>
+              </label>
+              <input type="color" id="customColorPicker2" value="#ff80bf" title="Secondary swirl color" class="hidden">
+            </div>
+          </div>
+
+          <!-- Stickiness Slider -->
+          <div class="maker-control-section">
+            <div class="stickiness-header">
+              <label class="control-label">🍯 Stickiness Level:</label>
+              <span id="stickinessValueLabel" class="stickiness-badge">Level 3: Balanced</span>
+            </div>
+            <input type="range" id="stickinessSlider" min="1" max="5" value="3" class="arcade-slider">
+            <div class="stickiness-trait-desc" id="stickinessTraitDesc">
+              Balanced adhesion. Sticks to your cursor on hover for 1.5 seconds, then lets go with a soft suction pop!
+            </div>
+          </div>
+
+          <!-- Add-ins & Charms -->
+          <div class="maker-control-section">
+            <label class="control-label">✨ Add-ins & Charms:</label>
+            <div class="charms-picker-row" id="charmsPickerRow">
+              <button class="charm-chip active" data-charm="none">None</button>
+              <button class="charm-chip" data-charm="foam">🍡 Foam Beads</button>
+              <button class="charm-chip" data-charm="glitter">✨ Star Glitter</button>
+              <button class="charm-chip" data-charm="fruit">🍓 Fruit Confetti</button>
+              <button class="charm-chip" data-charm="pearls">🔮 Boba Pearls</button>
+              <button class="charm-chip" data-charm="bear">🧸 Gummy Bear</button>
+            </div>
+          </div>
+
+          <!-- Mix & Make Button -->
+          <button id="createSlimeBtn" class="btn btn-primary btn-equip-custom">
+            ✨ Mix & Pour My Slime!
+          </button>
         </div>
       </div>
 
       <!-- Sticky Footer -->
       <div class="skins-modal-footer">
-        <button id="closeLabBtn" class="btn btn-secondary">Back to Game</button>
+        <button id="closeMakerBtn" class="btn btn-secondary">Close Studio</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Texture Boutique Modal (Buy Textures) -->
+  <div id="textureShopModal" class="skins-modal-backdrop hidden" aria-modal="true" role="dialog">
+    <div class="overlay-card slime-lab-card" id="textureShopCard">
+      <!-- Quick Exit '✕' Button -->
+      <button id="closeShopXBtn" class="btn-close-x" title="Close Shop (Esc)">✕</button>
+
+      <div class="lab-modal-header">
+        <div class="modal-title-box">
+          <h2>🛍️ Slime Texture Boutique</h2>
+          <p>Unlock premium sensory textures with earned Slime Coins! Each has unique squish visuals, ASMR sounds, and particle bursts.</p>
+        </div>
+        <div class="coins-badge lab-coins">
+          <span>🪙</span>
+          <strong id="shopCoinsVal">250</strong>
+        </div>
+      </div>
+
+      <div class="textures-grid-wrapper">
+        <div class="textures-grid" id="texturesGrid">
+          <!-- Dynamically populated by game.js -->
+        </div>
+      </div>
+
+      <!-- Sticky Footer -->
+      <div class="skins-modal-footer">
+        <button id="closeShopBtn" class="btn btn-secondary">Back to Slime Studio</button>
       </div>
     </div>
   </div>

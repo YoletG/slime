@@ -1,104 +1,40 @@
 /**
- * Slime Arcade - Core Game Engine
- * Soft-body jelly physics, volleyball & soccer modes, smart AI bot,
- * 2-player local mode, super moves, particle fx, and auto-warping canvas.
+ * Slime Studio 🧪✨
+ * Dedicated ASMR Slime Making & Tactile Soft-Body Physics Simulator
+ * Features:
+ * - Click to squish with localized soft-body indentation & ripple waves
+ * - Click & drag to stretch putty outward from exact grab points with elastic snap-back
+ * - Hover stickiness: sticks to cursor and holds for duration based on stickiness level (1 to 5) before releasing with ASMR suction pop
+ * - Textures: Cloud Slime (airy puffs, floaty mist), Floam Crunch (crunchy beads), Butter (creamy swirl), Glitter, Crystal, Gold
+ * - Full Slime Maker studio with custom color mixing, stickiness tuning, charms, and Texture Shop economy
  */
 
 (function () {
   'use strict';
 
-  // --- Constants ---
+  // --- Studio Constants ---
   const CANVAS_WIDTH = 960;
   const CANVAS_HEIGHT = 540;
-  const FLOOR_Y = 480;
-  const GRAVITY = 0.52;
-  const WINNING_SCORE = 7;
+  const NUM_VERTICES = 32;
 
-  // Slime Roster Catalog
-  const SLIMES = {
-    goopy: {
-      id: 'goopy',
-      name: 'Goopy Green',
-      color: '#38b000',
-      grad: ['#9ef01a', '#70e000', '#38b000', '#007200'],
-      glow: '#70e000',
-      powerName: 'Acid Spike',
-      powerDesc: 'Spikes the ball with high velocity acid trail!',
-      avatar: '🟢'
-    },
-    bubblegum: {
-      id: 'bubblegum',
-      name: 'Bubblegum',
-      color: '#ff007f',
-      grad: ['#ff99c8', '#ff70a6', '#ff007f', '#a00050'],
-      glow: '#ff70a6',
-      powerName: 'Bubble Shield',
-      powerDesc: 'Launches a high-bounce protective bubble!',
-      avatar: '🩷'
-    },
-    magma: {
-      id: 'magma',
-      name: 'Magma Blaze',
-      color: '#e63946',
-      grad: ['#ffbe0b', '#fb5607', '#ff0054', '#800f2f'],
-      glow: '#fb5607',
-      powerName: 'Meteor Smash',
-      powerDesc: 'Slams a fiery meteor strike towards opponent court!',
-      avatar: '🔥'
-    },
-    neon: {
-      id: 'neon',
-      name: 'Neon Cyan',
-      color: '#00f5d4',
-      grad: ['#e0fbfc', '#00f5d4', '#00bbf9', '#0077b6'],
-      glow: '#00f5d4',
-      powerName: 'Warp Dash',
-      powerDesc: 'Instantly dashes across court with electric speed!',
-      avatar: '⚡'
-    },
-    golden: {
-      id: 'golden',
-      name: 'Golden King',
-      color: '#ffd166',
-      grad: ['#fff3b0', '#ffe66d', '#ffd166', '#d4a373'],
-      glow: '#ffd166',
-      powerName: 'Royal Shockwave',
-      powerDesc: 'Sends a golden shockwave that destabilizes the ball!',
-      avatar: '👑'
-    },
-    cosmic: {
-      id: 'cosmic',
-      name: 'Cosmic Void',
-      color: '#7b2cbf',
-      grad: ['#e0aaff', '#c77dff', '#9d4edd', '#3c096c'],
-      glow: '#c77dff',
-      powerName: 'Gravity Warp',
-      powerDesc: 'Curving cosmic gravity trajectory on the ball!',
-      avatar: '🌌'
-    },
-    mint: {
-      id: 'mint',
-      name: 'Mint Frost',
-      color: '#52b788',
-      grad: ['#d8f3dc', '#b7e4c7', '#74c69d', '#2d6a4f'],
-      glow: '#74c69d',
-      powerName: 'Ice Frost',
-      powerDesc: 'Chills the opponent paddle with a frost blast!',
-      avatar: '❄️'
-    },
-    toxic: {
-      id: 'toxic',
-      name: 'Toxic Sludge',
-      color: '#9b5de5',
-      grad: ['#f15bb5', '#9b5de5', '#5a189a', '#240046'],
-      glow: '#9b5de5',
-      powerName: 'Sludge Bomb',
-      powerDesc: 'Heavy unpredictable squishy bounce!',
-      avatar: '🧪'
-    }
+  // Stickiness Durations for Hover Adhesion (in seconds)
+  const STICKINESS_HOLD_TIMES = {
+    1: 0.25, // Ultra Slick: barely sticks, releases almost immediately
+    2: 0.70, // Light Gloss: light tackiness, releases promptly
+    3: 1.50, // Balanced: gooey adhesion, holds for 1.5s
+    4: 2.80, // Gooey Cushion: heavy adhesion, thick filaments, holds for 2.8s
+    5: 4.50  // Super Sticky Taffy: extreme suction, long stretchy threads, holds for 4.5s
   };
 
-  // Slime Textures Catalog (Cloud, Floam, Butter, Glitter, Crystal, Gold)
+  const STICKINESS_TRAITS = {
+    1: { name: 'Level 1: Ultra Slick', hold: 0.25, desc: 'Ultra slick and springy non-stick putty. Sticks to cursor for only 0.25s, then slides off with a quick snap!' },
+    2: { name: 'Level 2: Light Gloss', hold: 0.70, desc: 'Light gloss tackiness. Lightly adheres to cursor for 0.7s before releasing smoothly.' },
+    3: { name: 'Level 3: Balanced', hold: 1.50, desc: 'Balanced jelly feel. Holds your cursor for 1.5s with gooey suction, then lets go with a satisfying pop!' },
+    4: { name: 'Level 4: Gooey Cushion', hold: 2.80, desc: 'Thick gooey adhesion. Forms visible gooey filaments stretching to your cursor for 2.8s!' },
+    5: { name: 'Level 5: Super Sticky Taffy', hold: 4.50, desc: 'Ultra sticky taffy! Stretches long gooey suction threads and holds tight for 4.5s before releasing!' }
+  };
+
+  // Textures Catalog
   const SLIME_TEXTURES = {
     classic: {
       id: 'classic',
@@ -106,15 +42,15 @@
       price: 0,
       icon: '🟢',
       tagline: 'Standard glossy bounce',
-      desc: 'The original translucent jelly slime. Balanced bounce and smooth sheen.'
+      desc: 'Translucent classic jelly slime. Balanced bounce and smooth cartoon sheen.'
     },
     cloud: {
       id: 'cloud',
       name: 'Cloud Slime ☁️',
       price: 150,
       icon: '☁️',
-      tagline: 'Airy, drizzly & floaty',
-      desc: 'Fluffy drizzling cotton texture! Floats softly with +15% hangtime and soft ASMR puffs.'
+      tagline: 'Airy, drizzly & fluffy',
+      desc: 'Fluffy drizzling cotton-candy texture! Fluffy cloud puffs and soft airy ASMR sounds.'
     },
     floam: {
       id: 'floam',
@@ -122,7 +58,7 @@
       price: 180,
       icon: '🍡',
       tagline: 'Crunchy micro-foam beads',
-      desc: 'Packed with thousands of colorful crunchy foam beads. Satisfying ASMR pops on every hit!'
+      desc: 'Packed with thousands of colorful crunchy foam beads that pop and crackle when squished!'
     },
     butter: {
       id: 'butter',
@@ -130,14 +66,14 @@
       price: 220,
       icon: '🧈',
       tagline: 'Super smooth & spreadable',
-      desc: 'Clay-infused velvety matte slime. Cushions hard shots and gives supreme landing balance.'
+      desc: 'Clay-infused velvety matte slime with a creamy butter-knife swirl texture.'
     },
     glitter: {
       id: 'glitter',
       name: 'Glitter Galaxy ✨',
       price: 250,
       icon: '✨',
-      tagline: 'Dazzling star sparkle',
+      tagline: 'Dazzling star sparkles',
       desc: 'Infused with holographic stars that shimmer and leave sparkling cosmic trails.'
     },
     crystal: {
@@ -146,7 +82,7 @@
       price: 300,
       icon: '💎',
       tagline: 'Pure glass refraction',
-      desc: 'Ultra clear optical glass texture with brilliant light prisms and snappy ball release.'
+      desc: 'Ultra clear optical glass texture with brilliant light prism facets.'
     },
     gold: {
       id: 'gold',
@@ -154,34 +90,25 @@
       price: 500,
       icon: '👑',
       tagline: 'Molten liquid 24K gold',
-      desc: 'Pure royal metallic chrome reflection. Drips golden sparkles on every spike!'
+      desc: 'Pure royal metallic chrome reflection with luxury golden shimmer sparkles.'
     }
   };
 
-  // Preset Colors for Slime Maker Palette
+  // Preset Colors for Palette
   const PRESET_COLORS = [
-    { name: 'Neon Lime', hex: '#38b000' },
-    { name: 'Electric Cyan', hex: '#00f5d4' },
-    { name: 'Bubble Pink', hex: '#ff007f' },
-    { name: 'Sunburst Orange', hex: '#fb5607' },
+    { name: 'Sky Cyan', hex: '#80deea' },
+    { name: 'Neon Lime', hex: '#70e000' },
+    { name: 'Bubble Pink', hex: '#ff70a6' },
     { name: 'Sunshine Yellow', hex: '#ffd166' },
-    { name: 'Cosmic Purple', hex: '#9b5de5' },
+    { name: 'Sunburst Orange', hex: '#fb5607' },
+    { name: 'Cosmic Lavender', hex: '#c77dff' },
     { name: 'Mint Frost', hex: '#52b788' },
-    { name: 'Ruby Blaze', hex: '#e63946' },
-    { name: 'Deep Royal', hex: '#3a86ff' },
-    { name: 'Pastel Lavender', hex: '#c77dff' }
+    { name: 'Ruby Blaze', hex: '#ff0054' },
+    { name: 'Pure Snow', hex: '#ffffff' },
+    { name: 'Deep Midnight', hex: '#1e293b' }
   ];
 
-  // Stickiness Traits & Descriptions (1 to 5)
-  const STICKINESS_TRAITS = {
-    1: { name: 'Level 1: Ultra Slick', restitution: 1.16, desc: 'Super slick and springy! Ball shoots off fast with high rebound velocity.' },
-    2: { name: 'Level 2: Light Gloss', restitution: 1.11, desc: 'Crisp and snappy with light surface grip. Snappy response on spikes.' },
-    3: { name: 'Level 3: Balanced', restitution: 1.06, desc: 'Balanced grip & bounce. Great all-around feel for rallies and spikes.' },
-    4: { name: 'Level 4: Gooey Cushion', restitution: 0.98, desc: 'Gooey cushion absorbs heavy opponent spikes and gives precise directional control.' },
-    5: { name: 'Level 5: Super Sticky', restitution: 0.91, desc: 'Ultra sticky taffy! Drastically slows fast spikes and leaves goo string drip trails.' }
-  };
-
-  // Color Utility Helpers for Custom Slimes
+  // Color Utility Helpers
   function hexToRgb(hex) {
     let c = hex.replace('#', '');
     if (c.length === 3) c = c.split('').map(x => x + x).join('');
@@ -204,13 +131,13 @@
   function generateSlimeGradient(baseHex) {
     return [
       adjustColor(baseHex, 0.65), // Highlight
-      adjustColor(baseHex, 0.25), // Midtone light
-      baseHex,                    // Base color
+      adjustColor(baseHex, 0.25), // Midtone
+      baseHex,                    // Base
       adjustColor(baseHex, -0.45) // Shadow
     ];
   }
 
-  // --- Particle System ---
+  // --- Visual Particle Classes ---
   class Particle {
     constructor(x, y, color, size = 5, vx = 0, vy = 0, life = 1.0, gravity = true) {
       this.x = x;
@@ -227,7 +154,7 @@
     update(dt) {
       this.x += this.vx * dt * 60;
       this.y += this.vy * dt * 60;
-      if (this.hasGravity) this.vy += GRAVITY * dt * 30;
+      if (this.hasGravity) this.vy += 0.35 * dt * 60;
       this.life -= dt;
     }
 
@@ -244,678 +171,727 @@
     }
   }
 
-  // --- Confetti Particle System ---
-  class Confetti {
-    constructor(x, y) {
-      this.x = x;
+  // Floating Coin FX
+  class FloatingCoin {
+    constructor(x, y, text = '+1 🪙') {
+      this.x = x + (Math.random() - 0.5) * 20;
       this.y = y;
-      const colors = ['#ffbe0b', '#fb5607', '#ff006e', '#8338ec', '#3a86ff', '#00f5d4'];
-      this.color = colors[Math.floor(Math.random() * colors.length)];
-      this.w = 6 + Math.random() * 6;
-      this.h = 4 + Math.random() * 4;
-      this.vx = (Math.random() - 0.5) * 12;
-      this.vy = -6 - Math.random() * 10;
-      this.rot = Math.random() * Math.PI * 2;
-      this.rotSpeed = (Math.random() - 0.5) * 12;
-      this.life = 2.0;
+      this.text = text;
+      this.life = 0.8;
+      this.maxLife = 0.8;
     }
 
     update(dt) {
-      this.x += this.vx * dt * 60;
-      this.y += this.vy * dt * 60;
-      this.vy += GRAVITY * 0.45 * dt * 60;
-      this.rot += this.rotSpeed * dt;
-      this.life -= dt * 0.5;
+      this.y -= 45 * dt;
+      this.life -= dt;
     }
 
     draw(ctx) {
       if (this.life <= 0) return;
+      const alpha = Math.max(0, this.life / this.maxLife);
       ctx.save();
-      ctx.translate(this.x, this.y);
-      ctx.rotate(this.rot);
-      ctx.fillStyle = this.color;
-      ctx.fillRect(-this.w / 2, -this.h / 2, this.w, this.h);
+      ctx.globalAlpha = alpha;
+      ctx.font = 'bold 20px "Lilita One", sans-serif';
+      ctx.fillStyle = '#ffd166';
+      ctx.strokeStyle = '#732600';
+      ctx.lineWidth = 3;
+      ctx.textAlign = 'center';
+      ctx.strokeText(this.text, this.x, this.y);
+      ctx.fillText(this.text, this.x, this.y);
       ctx.restore();
     }
   }
 
-  // --- Ball Class ---
-  class Ball {
-    constructor(mode = 'volleyball') {
-      this.radius = 22;
-      this.mode = mode;
-      this.reset('left');
-    }
-
-    reset(servingSide = 'left') {
-      this.x = servingSide === 'left' ? 240 : 720;
-      this.y = 220;
-      this.vx = servingSide === 'left' ? 2.5 : -2.5;
-      this.vy = -3;
-      this.rot = 0;
-      this.rotSpeed = 0;
-      this.isSuper = false;
-      this.superColor = '#fff';
-      this.trail = [];
+  // Interactive Squishy Bubble
+  class SlimeBubble {
+    constructor(x, y, radius = 18, color = '#ffffff') {
+      this.x = x;
+      this.y = y;
+      this.radius = radius;
+      this.color = color;
+      this.life = 12.0; // stays on slime until popped
+      this.wobble = Math.random() * Math.PI * 2;
     }
 
     update(dt) {
-      // Trail
-      this.trail.push({ x: this.x, y: this.y, alpha: 1.0 });
-      if (this.trail.length > 8) this.trail.shift();
+      this.wobble += dt * 4;
+      this.life -= dt;
+    }
 
-      // Physics
-      this.x += this.vx * dt * 60;
-      this.y += this.vy * dt * 60;
-      this.vy += GRAVITY * dt * 60;
-
-      // Rotation based on horizontal velocity
-      this.rot += (this.vx * 0.05 + this.rotSpeed) * dt * 60;
-      this.rotSpeed *= 0.98;
-
-      // Speed limits
-      const maxSpd = this.isSuper ? 24 : 18;
-      const speed = Math.hypot(this.vx, this.vy);
-      if (speed > maxSpd) {
-        this.vx = (this.vx / speed) * maxSpd;
-        this.vy = (this.vy / speed) * maxSpd;
-      }
+    isHit(x, y) {
+      return Math.hypot(this.x - x, this.y - y) <= this.radius * 1.2;
     }
 
     draw(ctx) {
-      // Draw Trail
-      for (let i = 0; i < this.trail.length; i++) {
-        const t = this.trail[i];
-        const a = (i / this.trail.length) * 0.35;
-        ctx.save();
-        ctx.globalAlpha = a;
-        ctx.fillStyle = this.isSuper ? this.superColor : 'rgba(255, 255, 255, 0.4)';
-        ctx.beginPath();
-        ctx.arc(t.x, t.y, this.radius * (0.4 + 0.6 * (i / this.trail.length)), 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-
-      // Drop Shadow on Floor
-      const shadowY = FLOOR_Y;
-      const distFromFloor = Math.max(0, FLOOR_Y - this.y);
-      const shadowAlpha = Math.max(0.1, 0.45 - distFromFloor / 500);
-      const shadowScale = Math.max(0.3, 1 - distFromFloor / 600);
-
       ctx.save();
-      ctx.globalAlpha = shadowAlpha;
-      ctx.fillStyle = '#0a1d37';
+      const r = this.radius * (1 + Math.sin(this.wobble) * 0.05);
+
+      // Translucent bubble body
+      const grad = ctx.createRadialGradient(this.x - r * 0.3, this.y - r * 0.3, 2, this.x, this.y, r);
+      grad.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+      grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.35)');
+      grad.addColorStop(1, 'rgba(255, 255, 255, 0.15)');
+
+      ctx.fillStyle = grad;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = 1.8;
       ctx.beginPath();
-      ctx.ellipse(this.x, shadowY + 2, this.radius * shadowScale * 1.3, this.radius * 0.35 * shadowScale, 0, 0, Math.PI * 2);
+      ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
       ctx.fill();
-      ctx.restore();
-
-      // Ball Body
-      ctx.save();
-      ctx.translate(this.x, this.y);
-      ctx.rotate(this.rot);
-
-      if (this.mode === 'volleyball') {
-        this.drawVolleyball(ctx);
-      } else {
-        this.drawSoccerBall(ctx);
-      }
-
-      // Outer outline & specular shine
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = '#2b1e10';
-      ctx.beginPath();
-      ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
       ctx.stroke();
 
       // Specular highlight
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
       ctx.beginPath();
-      ctx.arc(-this.radius * 0.3, -this.radius * 0.3, this.radius * 0.35, 0, Math.PI * 2);
+      ctx.arc(this.x - r * 0.35, this.y - r * 0.35, r * 0.28, 0, Math.PI * 2);
       ctx.fill();
-
-      // Super power glow
-      if (this.isSuper) {
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = this.superColor;
-        ctx.beginPath();
-        ctx.arc(0, 0, this.radius + 3, 0, Math.PI * 2);
-        ctx.stroke();
-      }
 
       ctx.restore();
     }
-
-    drawVolleyball(ctx) {
-      // Classic Volleyball 3-color curved stripes
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Blue & Yellow curved panels
-      ctx.lineWidth = 3.5;
-      ctx.strokeStyle = '#0077b6';
-      ctx.beginPath();
-      ctx.arc(0, 0, this.radius * 0.7, 0, Math.PI);
-      ctx.stroke();
-
-      ctx.strokeStyle = '#ffd166';
-      ctx.beginPath();
-      ctx.arc(0, 0, this.radius * 0.7, Math.PI, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.strokeStyle = '#333333';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(-this.radius, 0);
-      ctx.lineTo(this.radius, 0);
-      ctx.moveTo(0, -this.radius);
-      ctx.lineTo(0, this.radius);
-      ctx.stroke();
-    }
-
-    drawSoccerBall(ctx) {
-      // Classic Black & White Soccer Ball
-      ctx.fillStyle = '#f8f9fa';
-      ctx.beginPath();
-      ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Center Pentagon
-      ctx.fillStyle = '#1e293b';
-      ctx.beginPath();
-      for (let i = 0; i < 5; i++) {
-        const a = (i * Math.PI * 2) / 5 - Math.PI / 2;
-        const px = Math.cos(a) * (this.radius * 0.42);
-        const py = Math.sin(a) * (this.radius * 0.42);
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.closePath();
-      ctx.fill();
-
-      // Spokes to outer patches
-      ctx.lineWidth = 1.8;
-      ctx.strokeStyle = '#1e293b';
-      for (let i = 0; i < 5; i++) {
-        const a = (i * Math.PI * 2) / 5 - Math.PI / 2;
-        const px = Math.cos(a) * (this.radius * 0.42);
-        const py = Math.sin(a) * (this.radius * 0.42);
-        const ox = Math.cos(a) * this.radius;
-        const oy = Math.sin(a) * this.radius;
-        ctx.beginPath();
-        ctx.moveTo(px, py);
-        ctx.lineTo(ox, oy);
-        ctx.stroke();
-      }
-    }
   }
 
-  // --- Slime Character Class (Soft-Body Squishy Physics) ---
-  class Slime {
-    constructor(x, side = 'left', skinId = 'goopy') {
-      this.baseRadius = 55;
-      this.radius = 55;
-      this.x = x;
-      this.y = FLOOR_Y;
-      this.vx = 0;
-      this.vy = 0;
-      this.side = side; // 'left' or 'right'
-      this.skin = SLIMES[skinId] || SLIMES.goopy;
-      this.isGrounded = true;
-      this.speed = 7.5;
-      this.jumpForce = 13.5;
+  // --- Soft-Body Interactive Slime Simulation ---
+  class SlimeBlob {
+    constructor(cx, cy, radius = 135) {
+      this.cx = cx;
+      this.cy = cy;
+      this.baseRadius = radius;
 
-      // Soft-body deformation springs
-      this.scaleX = 1.0;
-      this.scaleY = 1.0;
-      this.targetScaleX = 1.0;
-      this.targetScaleY = 1.0;
-      this.wobblePhase = Math.random() * Math.PI * 2;
-      this.wobbleAmp = 0;
+      // Visual Recipe Configuration
+      this.color = '#80deea';
+      this.secondaryColor = '#ff80bf';
+      this.hasDualSwirl = false;
+      this.texture = 'cloud'; // default Cloud Slime
+      this.stickiness = 3;     // 1 to 5
+      this.charm = 'none';
 
-      // Eye tracking & Blinking
-      this.eyeBlink = 0;
-      this.eyeLookX = 0;
-      this.eyeLookY = 0;
-      this.nextBlinkTimer = 2 + Math.random() * 3;
+      // 32 Boundary Elastic Vertices
+      this.vertices = [];
+      for (let i = 0; i < NUM_VERTICES; i++) {
+        const angle = (i * Math.PI * 2) / NUM_VERTICES;
+        this.vertices.push({
+          angle: angle,
+          r0: radius,
+          r: radius,
+          v: 0,
+          targetR: radius
+        });
+      }
 
-      // Super power meter (0 to 100)
-      this.superMeter = 0;
-      this.isDashing = false;
-      this.dashTimer = 0;
+      // Drag & Stretch State
+      this.isDragging = false;
+      this.dragIndex = -1;
+      this.dragX = cx;
+      this.dragY = cy;
 
-      // Custom Slime Properties (Slime Maker & Textures)
-      this.isCustom = false;
-      this.customColor = '#38b000';
-      this.stickiness = 3; // 1 to 5
-      this.texture = 'classic';
-      this.customGrad = null;
-      this.ambientTimer = 0;
+      // Hover Stickiness State
+      this.isHoverStuck = false;
+      this.hoverStickTimer = 0;
+      this.hoverStickMax = STICKINESS_HOLD_TIMES[3];
+      this.hoverStickX = cx;
+      this.hoverStickY = cy;
+      this.hoverCooldown = 0;
+      this.hoverVertexIdx = -1;
+
+      // Ambient Animation
+      this.idlePhase = 0;
+      this.globalWobble = 0;
+
+      // Foam beads for Floam texture (36 beads moving with body)
+      this.foamBeads = [];
+      const beadColors = ['#ffffff', '#ff99c8', '#70e000', '#ffd166', '#00f5d4', '#ff70a6'];
+      for (let i = 0; i < 36; i++) {
+        const dist = Math.sqrt(Math.random()) * (radius * 0.85);
+        const ang = Math.random() * Math.PI * 2;
+        this.foamBeads.push({
+          distRatio: dist / radius,
+          ang: ang,
+          size: 4 + Math.random() * 4,
+          color: beadColors[Math.floor(Math.random() * beadColors.length)]
+        });
+      }
+
+      // Glitter stars for Glitter texture
+      this.glitterStars = [];
+      for (let i = 0; i < 24; i++) {
+        const dist = Math.sqrt(Math.random()) * (radius * 0.82);
+        const ang = Math.random() * Math.PI * 2;
+        this.glitterStars.push({
+          distRatio: dist / radius,
+          ang: ang,
+          size: 5 + Math.random() * 4,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+
+      // Cloud puffs for Cloud texture
+      this.cloudPuffs = [
+        { ox: -40, oy: -35, r: 42 },
+        { ox: 30, oy: -40, r: 44 },
+        { ox: 0, oy: -15, r: 46 },
+        { ox: -45, oy: 20, r: 38 },
+        { ox: 38, oy: 25, r: 40 }
+      ];
+
+      // Topping charms
+      this.charmItems = [];
+      this.initCharms();
     }
 
-    setSkin(skinId) {
-      this.isCustom = false;
-      if (SLIMES[skinId]) {
-        this.skin = SLIMES[skinId];
+    initCharms() {
+      this.charmItems = [];
+      if (this.charm === 'fruit') {
+        const fruits = ['🍓', '🍉', '🥝', '🥑', '🍋'];
+        for (let i = 0; i < 5; i++) {
+          this.charmItems.push({
+            emoji: fruits[i % fruits.length],
+            x: this.cx + (Math.random() - 0.5) * 110,
+            y: this.cy + (Math.random() - 0.5) * 80,
+            rot: (Math.random() - 0.5) * 0.8
+          });
+        }
+      } else if (this.charm === 'bear') {
+        this.charmItems.push({ emoji: '🧸', x: this.cx, y: this.cy - 10, rot: 0 });
+      } else if (this.charm === 'pearls') {
+        for (let i = 0; i < 9; i++) {
+          this.charmItems.push({
+            emoji: '🔮',
+            x: this.cx + (Math.random() - 0.5) * 120,
+            y: this.cy + (Math.random() - 0.5) * 90,
+            rot: 0
+          });
+        }
       }
     }
 
-    applyCustomConfig(cfg) {
-      this.isCustom = true;
-      if (cfg.color) this.customColor = cfg.color;
-      if (cfg.stickiness !== undefined) this.stickiness = parseInt(cfg.stickiness, 10);
-      if (cfg.texture) this.texture = cfg.texture;
-      this.customGrad = generateSlimeGradient(this.customColor);
-
-      // Trait modifications
-      if (this.texture === 'cloud') {
-        this.jumpForce = 14.2;
-      } else if (this.texture === 'butter') {
-        this.jumpForce = 13.0;
-      } else {
-        this.jumpForce = 13.5;
+    applyRecipe({ color, secondaryColor, hasDualSwirl, texture, stickiness, charm }) {
+      if (color) this.color = color;
+      if (secondaryColor) this.secondaryColor = secondaryColor;
+      if (hasDualSwirl !== undefined) this.hasDualSwirl = hasDualSwirl;
+      if (texture) this.texture = texture;
+      if (stickiness !== undefined) {
+        this.stickiness = parseInt(stickiness, 10);
+        this.hoverStickMax = STICKINESS_HOLD_TIMES[this.stickiness] || 1.5;
+      }
+      if (charm !== undefined) {
+        this.charm = charm;
+        this.initCharms();
       }
     }
 
-    jump() {
-      if (this.isGrounded) {
-        this.vy = -this.jumpForce;
-        this.isGrounded = false;
-        // Stretch vertically when jumping
-        this.scaleY = 1.35;
-        this.scaleX = 0.78;
-        if (window.slimeAudio) {
-          if (this.isCustom && this.texture === 'cloud') {
-            window.slimeAudio.playCloudPuff();
-          } else {
-            window.slimeAudio.playJump();
+    // Check if point (x, y) is inside the slime boundary
+    containsPoint(x, y) {
+      const dx = x - this.cx;
+      const dy = y - this.cy;
+      const dist = Math.hypot(dx, dy);
+      if (dist === 0) return true;
+
+      // Find vertex angle closest to point
+      let angle = Math.atan2(dy, dx);
+      if (angle < 0) angle += Math.PI * 2;
+
+      const idx = Math.floor((angle / (Math.PI * 2)) * NUM_VERTICES) % NUM_VERTICES;
+      return dist <= this.vertices[idx].r * 1.05;
+    }
+
+    // Find nearest vertex index to given point
+    getNearestVertexIndex(x, y) {
+      const dx = x - this.cx;
+      const dy = y - this.cy;
+      let angle = Math.atan2(dy, dx);
+      if (angle < 0) angle += Math.PI * 2;
+
+      let closestIdx = 0;
+      let minDiff = 999;
+      for (let i = 0; i < NUM_VERTICES; i++) {
+        let diff = Math.abs(this.vertices[i].angle - angle);
+        if (diff > Math.PI) diff = Math.PI * 2 - diff;
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestIdx = i;
+        }
+      }
+      return closestIdx;
+    }
+
+    // 💥 1. CLICK TO SQUISH: Apply localized indentation & ripple waves
+    squish(x, y, force = 65) {
+      const targetIdx = this.getNearestVertexIndex(x, y);
+
+      // Inward indentation impulse at clicked vertex
+      this.vertices[targetIdx].v -= force * 4.2;
+
+      // Neighbor vertices ripple with conservation of volume (bulge outwards!)
+      for (let i = 1; i <= 6; i++) {
+        const falloff = (7 - i) / 7;
+        const leftIdx = (targetIdx - i + NUM_VERTICES) % NUM_VERTICES;
+        const rightIdx = (targetIdx + i) % NUM_VERTICES;
+
+        // Inward dent nearby
+        if (i <= 2) {
+          this.vertices[leftIdx].v -= force * 2.5 * falloff;
+          this.vertices[rightIdx].v -= force * 2.5 * falloff;
+        } else {
+          // Bulge outward further away for jelly volume conservation
+          this.vertices[leftIdx].v += force * 1.8 * falloff;
+          this.vertices[rightIdx].v += force * 1.8 * falloff;
+        }
+      }
+
+      this.globalWobble = 0.55;
+    }
+
+    // ➰ 2. CLICK & DRAG TO STRETCH: Pull outward from where you dragged
+    startDrag(x, y) {
+      this.isDragging = true;
+      this.dragIndex = this.getNearestVertexIndex(x, y);
+      this.dragX = x;
+      this.dragY = y;
+    }
+
+    updateDrag(x, y) {
+      if (!this.isDragging || this.dragIndex === -1) return;
+      this.dragX = x;
+      this.dragY = y;
+
+      const dist = Math.hypot(x - this.cx, y - this.cy);
+      const v = this.vertices[this.dragIndex];
+
+      // Stretch target vertex directly towards mouse position
+      v.r = Math.max(v.r0 * 0.4, dist);
+
+      // Smoothly stretch adjacent vertices like pliable putty
+      const stretchRange = 7;
+      for (let i = 1; i <= stretchRange; i++) {
+        const falloff = Math.cos((i / (stretchRange + 1)) * (Math.PI / 2));
+        const leftIdx = (this.dragIndex - i + NUM_VERTICES) % NUM_VERTICES;
+        const rightIdx = (this.dragIndex + i) % NUM_VERTICES;
+
+        const neighborTarget = v.r0 + (v.r - v.r0) * falloff * 0.82;
+        this.vertices[leftIdx].r += (neighborTarget - this.vertices[leftIdx].r) * 0.25;
+        this.vertices[rightIdx].r += (neighborTarget - this.vertices[rightIdx].r) * 0.25;
+      }
+    }
+
+    endDrag() {
+      if (!this.isDragging) return;
+      this.isDragging = false;
+      if (this.dragIndex !== -1) {
+        // High elastic rebound impulse when let go!
+        const v = this.vertices[this.dragIndex];
+        const stretchAmount = v.r - v.r0;
+        // Snap back velocity proportional to stretch
+        v.v -= stretchAmount * 4.5;
+        this.globalWobble = 0.7;
+      }
+      this.dragIndex = -1;
+    }
+
+    // 🍯 3. HOVER STICKINESS: Adheres to cursor, holds for duration, then lets go!
+    updateHover(mouseX, mouseY, dt, audioSystem) {
+      // Manage cooldown timer
+      if (this.hoverCooldown > 0) {
+        this.hoverCooldown -= dt;
+      }
+
+      const isInside = this.containsPoint(mouseX, mouseY);
+
+      // If hovering over slime, not currently dragging, and cooldown expired -> STICK!
+      if (isInside && !this.isDragging && !this.isHoverStuck && this.hoverCooldown <= 0) {
+        this.isHoverStuck = true;
+        this.hoverStickMax = STICKINESS_HOLD_TIMES[this.stickiness] || 1.5;
+        this.hoverStickTimer = this.hoverStickMax;
+        this.hoverStickX = mouseX;
+        this.hoverStickY = mouseY;
+        this.hoverVertexIdx = this.getNearestVertexIndex(mouseX, mouseY);
+
+        // Subtle initial adhesion sound
+        if (audioSystem) {
+          audioSystem.playASMRSquish(Math.max(1, this.stickiness - 1));
+        }
+      }
+
+      // While hovering stuck
+      if (this.isHoverStuck) {
+        this.hoverStickTimer -= dt;
+        this.hoverStickX = mouseX;
+        this.hoverStickY = mouseY;
+
+        // Pull the stuck surface slightly towards the cursor to create gooey suction peak
+        if (this.hoverVertexIdx !== -1) {
+          const v = this.vertices[this.hoverVertexIdx];
+          const distToCursor = Math.hypot(mouseX - this.cx, mouseY - this.cy);
+          // Gently lift towards cursor
+          v.r += (distToCursor - v.r) * 0.18;
+        }
+
+        // Check if stick timer expired OR mouse pulled too far away (> 160px from center)
+        const currentDist = Math.hypot(mouseX - this.cx, mouseY - this.cy);
+        const maxTearDist = this.baseRadius * (1.3 + this.stickiness * 0.15);
+
+        if (this.hoverStickTimer <= 0 || currentDist > maxTearDist) {
+          // 🔔 UNSTICK / LET GO!
+          this.isHoverStuck = false;
+          this.hoverCooldown = 0.45; // brief break before re-sticking
+
+          if (this.hoverVertexIdx !== -1) {
+            // Surface snaps back smoothly
+            this.vertices[this.hoverVertexIdx].v -= 35;
           }
+
+          // Satisfying suction release pop audio!
+          if (audioSystem) {
+            audioSystem.playStickRelease(this.stickiness);
+          }
+
+          return { unstick: true, x: mouseX, y: mouseY, stickiness: this.stickiness };
         }
       }
+
+      return null;
     }
 
-    triggerWobble(amount = 0.35) {
-      this.wobbleAmp = amount;
-      this.scaleY = 0.7;
-      this.scaleX = 1.3;
-    }
+    // Soft-body Spring Physics Simulation Step
+    updatePhysics(dt) {
+      this.idlePhase += dt * 3.5;
 
-    update(dt, ball, netX, courtWidth) {
-      // Horizontal Movement
-      this.x += this.vx * dt * 60;
+      // Spring constants modulate with stickiness:
+      // Higher stickiness = slower, more viscous putty damping
+      const kSpring = 160;
+      const kNeighbor = 80;
+      const cDamp = 6.5 + (this.stickiness - 1) * 1.5;
 
-      // Court Boundaries
-      const r = this.radius;
-      if (this.side === 'left') {
-        if (this.x - r < 10) this.x = 10 + r;
-        if (this.x + r > netX - 6) this.x = netX - 6 - r;
-      } else {
-        if (this.x - r < netX + 6) this.x = netX + 6 + r;
-        if (this.x + r > courtWidth - 10) this.x = courtWidth - 10 - r;
-      }
+      // Update all 32 vertices
+      for (let i = 0; i < NUM_VERTICES; i++) {
+        const v = this.vertices[i];
 
-      // Vertical Movement (Gravity & Jumping)
-      this.y += this.vy * dt * 60;
-      if (this.y < FLOOR_Y) {
-        // Cloud Slime gets floaty hangtime (+18% hangtime)
-        const curGravity = (this.isCustom && this.texture === 'cloud') ? GRAVITY * 0.82 : GRAVITY;
-        this.vy += curGravity * dt * 60;
-        this.isGrounded = false;
-      } else {
-        if (!this.isGrounded) {
-          // Landing squish impact!
-          this.scaleY = 0.72;
-          this.scaleX = 1.28;
-          this.wobbleAmp = 0.25;
+        // If this vertex is currently being dragged, physics handles neighbors
+        if (this.isDragging && i === this.dragIndex) {
+          continue;
         }
-        this.y = FLOOR_Y;
-        this.vy = 0;
-        this.isGrounded = true;
-      }
 
-      // Soft-body Spring Damper (Restores normal shape smoothly)
-      this.scaleX += (this.targetScaleX - this.scaleX) * 0.18;
-      this.scaleY += (this.targetScaleY - this.scaleY) * 0.18;
+        const prev = this.vertices[(i - 1 + NUM_VERTICES) % NUM_VERTICES];
+        const next = this.vertices[(i + 1) % NUM_VERTICES];
 
-      // Ambient idle breathing wobble
-      this.wobblePhase += dt * 5;
-      const idleWobble = Math.sin(this.wobblePhase) * 0.03;
-      this.targetScaleX = 1.0 + idleWobble + (this.wobbleAmp ? Math.sin(this.wobblePhase * 3) * this.wobbleAmp : 0);
-      this.targetScaleY = 1.0 - idleWobble - (this.wobbleAmp ? Math.sin(this.wobblePhase * 3) * this.wobbleAmp : 0);
-      this.wobbleAmp *= 0.92;
+        // Restoring force to base radius
+        const fSpring = -kSpring * (v.r - v.r0);
 
-      // Eye Tracking Ball
-      const edx = ball.x - (this.x + (this.side === 'left' ? 18 : -18));
-      const edy = ball.y - (this.y - 25);
-      const edist = Math.hypot(edx, edy) || 1;
-      this.eyeLookX = (edx / edist) * 5;
-      this.eyeLookY = (edy / edist) * 4;
+        // Surface tension sharing between adjacent vertices
+        const fNeighbor = kNeighbor * ((prev.r - v.r) + (next.r - v.r));
 
-      // Blinking
-      this.nextBlinkTimer -= dt;
-      if (this.nextBlinkTimer <= 0) {
-        this.eyeBlink = 1.0;
-        this.nextBlinkTimer = 2.5 + Math.random() * 3.5;
-      }
-      if (this.eyeBlink > 0) {
-        this.eyeBlink -= dt * 6;
-      }
+        // Damping force
+        const fDamp = -cDamp * v.v;
 
-      // Dash Timer
-      if (this.isDashing) {
-        this.dashTimer -= dt;
-        if (this.dashTimer <= 0) {
-          this.isDashing = false;
-          this.vx = 0;
+        // Total force & acceleration
+        const accel = fSpring + fNeighbor + fDamp;
+        v.v += accel * dt;
+        v.r += v.v * dt;
+
+        // Clamp minimum radius to prevent inversion
+        if (v.r < v.r0 * 0.3) {
+          v.r = v.r0 * 0.3;
+          v.v = 0;
         }
       }
+
+      // Smooth idle breathing wobble
+      const idleWobble = Math.sin(this.idlePhase) * 2.5;
+      for (let i = 0; i < NUM_VERTICES; i++) {
+        this.vertices[i].r0 = this.baseRadius + idleWobble;
+      }
+
+      this.globalWobble *= 0.92;
     }
 
+    // Draw the Slime on Studio Canvas
     draw(ctx) {
       ctx.save();
-      ctx.translate(this.x, this.y);
 
-      // Floor Shadow
-      ctx.fillStyle = 'rgba(10, 25, 47, 0.4)';
+      // 1. Shadow beneath the slime
+      ctx.fillStyle = 'rgba(10, 20, 35, 0.45)';
       ctx.beginPath();
-      ctx.ellipse(0, 0, this.radius * 1.15 * this.scaleX, 10, 0, 0, Math.PI * 2);
+      ctx.ellipse(this.cx, this.cy + this.baseRadius * 0.75, this.baseRadius * 1.15, 24, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Slime Jelly Dome Geometry (Scaled by soft-body deformation)
-      ctx.scale(this.scaleX, this.scaleY);
+      // 2. Smooth Closed Spline Path through all 32 Vertices
+      const pts = [];
+      for (let i = 0; i < NUM_VERTICES; i++) {
+        const v = this.vertices[i];
+        pts.push({
+          x: this.cx + Math.cos(v.angle) * v.r,
+          y: this.cy + Math.sin(v.angle) * v.r
+        });
+      }
 
-      // Gradient Fill (Custom or Catalog)
-      const grad = ctx.createRadialGradient(-15, -30, 8, 0, 0, this.radius);
-      if (this.isCustom) {
-        if (this.texture === 'gold') {
-          grad.addColorStop(0, '#fffbe0');
-          grad.addColorStop(0.35, '#ffd700');
-          grad.addColorStop(0.5, '#cca000');
-          grad.addColorStop(0.52, '#fff3a8');
-          grad.addColorStop(0.75, '#b8860b');
-          grad.addColorStop(1, '#5c4308');
-        } else if (this.texture === 'crystal') {
-          grad.addColorStop(0, adjustColor(this.customColor, 0.65));
-          grad.addColorStop(0.35, adjustColor(this.customColor, 0.25));
-          grad.addColorStop(0.75, this.customColor);
-          grad.addColorStop(1, adjustColor(this.customColor, -0.2));
-        } else {
-          const cGrad = this.customGrad || generateSlimeGradient(this.customColor);
-          grad.addColorStop(0, cGrad[0]);
-          grad.addColorStop(0.3, cGrad[1]);
-          grad.addColorStop(0.7, cGrad[2]);
-          grad.addColorStop(1, cGrad[3]);
-        }
+      ctx.beginPath();
+      // Midpoint curve interpolation
+      const midX0 = (pts[0].x + pts[NUM_VERTICES - 1].x) / 2;
+      const midY0 = (pts[0].y + pts[NUM_VERTICES - 1].y) / 2;
+      ctx.moveTo(midX0, midY0);
+
+      for (let i = 0; i < NUM_VERTICES; i++) {
+        const next = pts[(i + 1) % NUM_VERTICES];
+        const midX = (pts[i].x + next.x) / 2;
+        const midY = (pts[i].y + next.y) / 2;
+        ctx.quadraticCurveTo(pts[i].x, pts[i].y, midX, midY);
+      }
+      ctx.closePath();
+
+      // 3. Rich 3D Gradient Jelly Fill
+      const grad = ctx.createRadialGradient(
+        this.cx - this.baseRadius * 0.3,
+        this.cy - this.baseRadius * 0.35,
+        10,
+        this.cx,
+        this.cy,
+        this.baseRadius * 1.3
+      );
+
+      if (this.texture === 'gold') {
+        grad.addColorStop(0, '#fffbe0');
+        grad.addColorStop(0.35, '#ffd700');
+        grad.addColorStop(0.5, '#cca000');
+        grad.addColorStop(0.52, '#fff3a8');
+        grad.addColorStop(0.8, '#b8860b');
+        grad.addColorStop(1, '#5c4308');
+      } else if (this.texture === 'crystal') {
+        grad.addColorStop(0, adjustColor(this.color, 0.75));
+        grad.addColorStop(0.35, adjustColor(this.color, 0.35));
+        grad.addColorStop(0.75, this.color);
+        grad.addColorStop(1, adjustColor(this.color, -0.25));
+      } else if (this.hasDualSwirl) {
+        grad.addColorStop(0, adjustColor(this.color, 0.5));
+        grad.addColorStop(0.45, this.color);
+        grad.addColorStop(0.55, this.secondaryColor);
+        grad.addColorStop(1, adjustColor(this.secondaryColor, -0.4));
       } else {
-        grad.addColorStop(0, this.skin.grad[0]);
-        grad.addColorStop(0.3, this.skin.grad[1]);
-        grad.addColorStop(0.7, this.skin.grad[2]);
-        grad.addColorStop(1, this.skin.grad[3]);
+        const cGrad = generateSlimeGradient(this.color);
+        grad.addColorStop(0, cGrad[0]);
+        grad.addColorStop(0.3, cGrad[1]);
+        grad.addColorStop(0.7, cGrad[2]);
+        grad.addColorStop(1, cGrad[3]);
       }
 
       ctx.fillStyle = grad;
-      ctx.strokeStyle = '#1e1e24';
-      ctx.lineWidth = 3.2;
-
-      // Draw Slime Dome (Slightly curved bottom for natural jelly feel)
-      ctx.beginPath();
-      ctx.arc(0, 0, this.radius, Math.PI, 0, false);
-      ctx.quadraticCurveTo(0, 4, -this.radius, 0);
-      ctx.closePath();
+      ctx.strokeStyle = '#1a2230';
+      ctx.lineWidth = 3.5;
       ctx.fill();
       ctx.stroke();
 
-      // Texture Visual Overlays
-      if (this.isCustom) {
-        if (this.texture === 'cloud') {
-          // Cloud Slime ☁️: Fluffy cumulus cloud puffs overlapping on the top surface
-          ctx.save();
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
-          ctx.beginPath();
-          ctx.arc(-26, -24, 18, 0, Math.PI * 2);
-          ctx.arc(-8, -38, 20, 0, Math.PI * 2);
-          ctx.arc(14, -36, 19, 0, Math.PI * 2);
-          ctx.arc(30, -22, 16, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-          ctx.beginPath();
-          ctx.arc(-10, -18, 22, 0, Math.PI * 2);
-          ctx.arc(10, -18, 20, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
-        } else if (this.texture === 'floam') {
-          // Floam Slime 🍡: Colorful micro-foam beads suspended in jelly body
-          ctx.save();
-          const beadColors = ['#ffffff', '#ff99c8', '#70e000', '#ffd166', '#00f5d4', '#ff70a6'];
-          const beadPositions = [
-            [-32, -14, 5.5, 0], [-20, -28, 6.0, 1], [-12, -12, 5.0, 2], [0, -32, 6.5, 3],
-            [15, -26, 5.8, 4], [28, -14, 6.2, 5], [-24, -38, 5.2, 3], [8, -16, 5.4, 1],
-            [-6, -42, 5.0, 2], [22, -38, 5.5, 0], [4, -40, 5.2, 4], [-36, -26, 4.8, 5]
-          ];
-          beadPositions.forEach(([bx, by, br, colIdx]) => {
-            ctx.fillStyle = beadColors[colIdx % beadColors.length];
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
-            ctx.lineWidth = 1.2;
-            ctx.beginPath();
-            ctx.arc(bx, by, br, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-            ctx.beginPath();
-            ctx.arc(bx - br * 0.35, by - br * 0.35, br * 0.3, 0, Math.PI * 2);
-            ctx.fill();
-          });
-          ctx.restore();
-        } else if (this.texture === 'butter') {
-          // Butter Slime 🧈: Velvety smooth butter-knife swirl curve across dome
-          ctx.save();
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-          ctx.lineWidth = 8;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(-35, -16);
-          ctx.bezierCurveTo(-15, -42, 10, -44, 34, -20);
-          ctx.stroke();
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-          ctx.lineWidth = 4;
-          ctx.beginPath();
-          ctx.moveTo(-22, -10);
-          ctx.bezierCurveTo(-6, -24, 12, -26, 26, -10);
-          ctx.stroke();
-          ctx.restore();
-        } else if (this.texture === 'glitter') {
-          // Glitter Slime ✨: Twinkling 4-point holographic star sparkles
-          ctx.save();
-          const starOffsets = [
-            [-28, -25, 6, 0], [-10, -36, 7.5, 0.5], [16, -34, 6.5, 1.2],
-            [26, -18, 5.5, 1.8], [-6, -18, 7, 2.3], [12, -12, 5, 3.1]
-          ];
-          starOffsets.forEach(([sx, sy, size, phase]) => {
-            const pulse = (Math.sin(this.wobblePhase * 3 + phase) + 1) * 0.5;
-            const curSize = size * (0.6 + pulse * 0.7);
-            ctx.fillStyle = pulse > 0.6 ? '#ffffff' : '#ffe66d';
-            ctx.beginPath();
-            ctx.moveTo(sx, sy - curSize);
-            ctx.quadraticCurveTo(sx, sy, sx + curSize, sy);
-            ctx.quadraticCurveTo(sx, sy, sx, sy + curSize);
-            ctx.quadraticCurveTo(sx, sy, sx - curSize, sy);
-            ctx.quadraticCurveTo(sx, sy, sx, sy - curSize);
-            ctx.fill();
-          });
-          ctx.restore();
-        } else if (this.texture === 'crystal') {
-          // Crystal Clear 💎: Optical glass refraction gleam & prism facet
-          ctx.save();
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.moveTo(-32, -12);
-          ctx.lineTo(-12, -42);
-          ctx.lineTo(16, -42);
-          ctx.lineTo(34, -12);
-          ctx.stroke();
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
-          ctx.fill();
-          ctx.restore();
-        } else if (this.texture === 'gold') {
-          // Golden Chrome 👑: Metallic horizon reflection line & gold glints
-          ctx.save();
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.arc(0, 0, this.radius * 0.5, Math.PI * 1.1, Math.PI * 1.5);
-          ctx.stroke();
-          ctx.restore();
-        }
+      // 4. Texture-Specific Internal Detailing (Clipped to body)
+      ctx.save();
+      ctx.clip(); // Clip all texture elements inside the slime body!
 
-        // Stickiness Goo Drips (Level 4 & 5)
-        if (this.stickiness >= 4) {
-          ctx.save();
-          ctx.fillStyle = this.customGrad ? this.customGrad[2] : this.customColor;
-          ctx.strokeStyle = '#1e1e24';
-          ctx.lineWidth = 2.0;
-          const dripLen = this.stickiness === 5 ? 18 : 10;
-          const dripPositions = [-28, -6, 18, 34];
-          dripPositions.forEach((dx, i) => {
-            const curDrip = dripLen + Math.sin(this.wobblePhase * 2 + i * 1.5) * 4;
-            ctx.beginPath();
-            ctx.moveTo(dx - 4, 0);
-            ctx.quadraticCurveTo(dx - 4, curDrip * 0.7, dx, curDrip);
-            ctx.quadraticCurveTo(dx + 4, curDrip * 0.7, dx + 4, 0);
-            ctx.fill();
-            ctx.stroke();
-          });
-          ctx.restore();
-        }
+      // Cloud Slime ☁️: Fluffy cumulus layered puffs
+      if (this.texture === 'cloud') {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+        this.cloudPuffs.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(this.cx + p.ox, this.cy + p.oy, p.r, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        // Inner highlights
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.beginPath();
+        ctx.arc(this.cx - 15, this.cy - 10, 55, 0, Math.PI * 2);
+        ctx.fill();
       }
 
-      // Curved Specular Gloss Highlight (Cartoon jelly shine)
+      // Floam Crunch 🍡: Moving micro-foam beads with 3D sphere highlights
+      else if (this.texture === 'floam') {
+        this.foamBeads.forEach(b => {
+          const bx = this.cx + Math.cos(b.ang) * (this.baseRadius * b.distRatio);
+          const by = this.cy + Math.sin(b.ang) * (this.baseRadius * b.distRatio);
+
+          ctx.fillStyle = b.color;
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.arc(bx, by, b.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // 3D sphere shine
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.beginPath();
+          ctx.arc(bx - b.size * 0.35, by - b.size * 0.35, b.size * 0.3, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      // Butter Slime 🧈: Creamy butter-knife swirl curve across the body
+      else if (this.texture === 'butter') {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.lineWidth = 18;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(this.cx - 75, this.cy - 20);
+        ctx.bezierCurveTo(this.cx - 30, this.cy - 80, this.cx + 40, this.cy - 70, this.cx + 80, this.cy - 10);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.lineWidth = 10;
+        ctx.beginPath();
+        ctx.moveTo(this.cx - 50, this.cy + 15);
+        ctx.bezierCurveTo(this.cx - 10, this.cy - 25, this.cx + 35, this.cy - 20, this.cx + 60, this.cy + 25);
+        ctx.stroke();
+      }
+
+      // Glitter Galaxy ✨: Holographic twinkling 4-point star sparkles
+      else if (this.texture === 'glitter') {
+        this.glitterStars.forEach(s => {
+          const sx = this.cx + Math.cos(s.ang) * (this.baseRadius * s.distRatio);
+          const sy = this.cy + Math.sin(s.ang) * (this.baseRadius * s.distRatio);
+          const pulse = (Math.sin(this.idlePhase * 2 + s.phase) + 1) * 0.5;
+          const sz = s.size * (0.6 + pulse * 0.6);
+
+          ctx.fillStyle = pulse > 0.6 ? '#ffffff' : '#fff3a8';
+          ctx.beginPath();
+          ctx.moveTo(sx, sy - sz);
+          ctx.quadraticCurveTo(sx, sy, sx + sz, sy);
+          ctx.quadraticCurveTo(sx, sy, sx, sy + sz);
+          ctx.quadraticCurveTo(sx, sy, sx - sz, sy);
+          ctx.quadraticCurveTo(sx, sy, sx, sy - sz);
+          ctx.fill();
+        });
+      }
+
+      // Crystal Clear 💎: Optical prism facet lines
+      else if (this.texture === 'crystal') {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(this.cx - 60, this.cy - 10);
+        ctx.lineTo(this.cx - 20, this.cy - 70);
+        ctx.lineTo(this.cx + 30, this.cy - 70);
+        ctx.lineTo(this.cx + 70, this.cy - 10);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
+        ctx.fill();
+      }
+
+      // Golden Chrome 👑: Metallic horizon reflection line
+      else if (this.texture === 'gold') {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.lineWidth = 4.5;
+        ctx.beginPath();
+        ctx.arc(this.cx, this.cy, this.baseRadius * 0.55, Math.PI * 1.1, Math.PI * 1.5);
+        ctx.stroke();
+      }
+
+      // Topping Charms
+      if (this.charmItems.length > 0) {
+        ctx.font = '28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        this.charmItems.forEach(ch => {
+          ctx.save();
+          ctx.translate(ch.x, ch.y);
+          ctx.rotate(ch.rot);
+          ctx.fillText(ch.emoji, 0, 0);
+          ctx.restore();
+        });
+      }
+
+      ctx.restore(); // End clipping
+
+      // 5. Specular Gloss Shines (Cartoon jelly shine overlay)
       ctx.save();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
-      ctx.lineWidth = 4.5;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = 7.0;
       ctx.lineCap = 'round';
       ctx.beginPath();
-      const shineSide = this.side === 'left' ? -1 : 1;
-      ctx.arc(0, 0, this.radius * 0.78, Math.PI * 1.15, Math.PI * 1.45);
+      ctx.arc(this.cx, this.cy, this.baseRadius * 0.78, Math.PI * 1.15, Math.PI * 1.42);
       ctx.stroke();
+
+      // Secondary specular dot
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.beginPath();
+      ctx.arc(this.cx - this.baseRadius * 0.55, this.cy - this.baseRadius * 0.52, 6, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
 
-      // Expressive Eyes
-      const eyeOffsetX = this.side === 'left' ? 20 : -20;
-      const eyeOffsetY = -24;
-      const eyeRadius = 9.5;
+      // 6. Draw Hover Stickiness Goo Filaments & Indicator
+      if (this.isHoverStuck) {
+        ctx.save();
+        const filaments = 4;
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = this.stickiness >= 4 ? 3.5 : 2.0;
 
-      ctx.save();
-      ctx.translate(eyeOffsetX, eyeOffsetY);
+        for (let f = 0; f < filaments; f++) {
+          const spread = (f - filaments / 2) * 8;
+          ctx.beginPath();
+          ctx.moveTo(this.hoverStickX + spread, this.hoverStickY + spread);
+          // Curve connecting cursor to slime center
+          ctx.quadraticCurveTo(
+            (this.hoverStickX + this.cx) / 2 + spread * 2,
+            (this.hoverStickY + this.cy) / 2,
+            this.cx + spread,
+            this.cy
+          );
+          ctx.stroke();
+        }
 
-      if (this.eyeBlink > 0.3) {
-        // Blinking line
-        ctx.strokeStyle = '#111';
-        ctx.lineWidth = 2.5;
+        // Circular Countdown Ring around cursor showing remaining stickiness hold time!
+        const timerProgress = Math.max(0, this.hoverStickTimer / this.hoverStickMax);
+        ctx.strokeStyle = '#ffd166';
+        ctx.lineWidth = 3.5;
         ctx.beginPath();
-        ctx.moveTo(-eyeRadius, 0);
-        ctx.lineTo(eyeRadius, 0);
+        ctx.arc(this.hoverStickX, this.hoverStickY, 20, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * timerProgress));
         ctx.stroke();
-      } else {
-        // Eye Sclera (White)
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = '#1e1e24';
-        ctx.lineWidth = 2.2;
-        ctx.beginPath();
-        ctx.arc(0, 0, eyeRadius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
 
-        // Eye Pupil & Catchlight
-        ctx.fillStyle = '#1e1e24';
+        // Inner glowing tackiness dot
+        ctx.fillStyle = '#ffbe0b';
         ctx.beginPath();
-        ctx.arc(this.eyeLookX, this.eyeLookY, eyeRadius * 0.52, 0, Math.PI * 2);
+        ctx.arc(this.hoverStickX, this.hoverStickY, 4, 0, Math.PI * 2);
         ctx.fill();
 
-        // White specular reflection dot
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(this.eyeLookX - 2, this.eyeLookY - 2, 2.2, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.restore();
       }
-      ctx.restore();
 
       ctx.restore();
     }
   }
 
-  // --- Main Game Engine Class ---
-  class Game {
+  // --- Main Slime Studio Game Controller ---
+  class SlimeStudio {
     constructor() {
-      this.canvas = document.getElementById('gameCanvas');
+      this.canvas = document.getElementById('slimeCanvas');
       this.ctx = this.canvas.getContext('2d');
       this.canvasStage = document.getElementById('canvasStage');
       this.canvasWrapper = document.getElementById('canvasWrapper');
 
-      // Mode & Config
-      this.mode = 'volleyball'; // 'volleyball' or 'soccer'
-      this.isTwoPlayer = false;
-      this.difficulty = 'medium'; // 'easy', 'medium', 'hard'
-      this.state = 'START'; // 'START', 'SERVING', 'PLAYING', 'SCORED', 'GAMEOVER', 'PAUSED'
-      this.servingSide = 'left';
+      // Slime Entity
+      this.slime = new SlimeBlob(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 135);
 
-      // Scores & Rallies
-      this.p1Score = 0;
-      this.p2Score = 0;
-      this.rally = 0;
-      this.time = 0;
-
-      // Currency & Custom Slime State
+      // Studio Economy & Data
       this.coins = parseInt(localStorage.getItem('slime_coins') || '250', 10);
       try {
-        this.unlockedTextures = JSON.parse(localStorage.getItem('slime_unlocked_textures') || '["classic"]');
+        this.unlockedTextures = JSON.parse(localStorage.getItem('slime_unlocked_textures') || '["classic", "cloud"]');
       } catch (e) {
-        this.unlockedTextures = ['classic'];
-      }
-      try {
-        this.customSlimeData = JSON.parse(localStorage.getItem('slime_custom_data') || '{"color":"#38b000","stickiness":3,"texture":"classic","isEquipped":false}');
-      } catch (e) {
-        this.customSlimeData = { color: '#38b000', stickiness: 3, texture: 'classic', isEquipped: false };
+        this.unlockedTextures = ['classic', 'cloud'];
       }
 
-      this.makerColor = this.customSlimeData.color || '#38b000';
-      this.makerStickiness = this.customSlimeData.stickiness || 3;
-      this.makerTexture = this.customSlimeData.texture || 'classic';
+      // Stats
+      this.statSquishes = 0;
+      this.statStretches = 0;
 
-      // Entities
-      this.p1 = new Slime(200, 'left', 'goopy');
-      this.p2 = new Slime(760, 'right', 'magma');
-      this.ball = new Ball(this.mode);
+      // Active Tool Mode ('poke', 'swirl', 'glitter', 'bubble')
+      this.activeTool = 'poke';
+
+      // Visual Effects Collections
       this.particles = [];
-      this.confetti = [];
+      this.floatingCoins = [];
+      this.bubbles = [];
 
-      // Apply custom slime if previously equipped
-      if (this.customSlimeData && this.customSlimeData.isEquipped) {
-        this.p1.applyCustomConfig(this.customSlimeData);
-        const texObj = SLIME_TEXTURES[this.makerTexture];
-        const p1AvatarEl = document.getElementById('p1Avatar');
-        if (p1AvatarEl) p1AvatarEl.textContent = texObj ? texObj.icon : '🧪';
-      }
+      // Mouse State
+      this.mouse = { x: 0, y: 0, isDown: false };
 
-      // Net / Goal Dimensions
-      this.netWidth = 14;
-      this.netHeight = 140; // from floor
-      this.netX = CANVAS_WIDTH / 2;
-
-      // Input Keys
-      this.keys = {
-        w: false, a: false, d: false, space: false,
-        arrowUp: false, arrowLeft: false, arrowRight: false, enter: false
-      };
-
-      // DOM UI Elements
+      // DOM Elements
       this.bindDOMElements();
       this.bindEventListeners();
-      this.initSlimeCoins();
-      this.initSlimeLab();
-      this.buildSkinsGrid();
+      this.initStudio();
 
       // Screen Warper
       this.warpGameToScreen();
@@ -925,195 +901,406 @@
         new ResizeObserver(() => this.warpGameToScreen()).observe(this.canvasStage);
       }
 
-      // Start loop
+      // Animation Loop
       this.lastTime = performance.now();
       requestAnimationFrame((t) => this.loop(t));
     }
 
     bindDOMElements() {
-      this.modeBtn = document.getElementById('modeBtn');
-      this.playersBtn = document.getElementById('playersBtn');
-      this.diffContainer = document.getElementById('diffContainer');
-      this.difficultySelect = document.getElementById('difficulty');
-      this.skinsBtn = document.getElementById('skinsBtn');
-      this.soundToggleBtn = document.getElementById('soundToggle');
-      this.pauseBtn = document.getElementById('pauseBtn');
-      this.restartBtn = document.getElementById('restartBtn');
-
-      this.p1ScoreEl = document.getElementById('p1Score');
-      this.p2ScoreEl = document.getElementById('p2Score');
-      this.rallyCountEl = document.getElementById('rallyCount');
-      this.modeBadgeEl = document.getElementById('modeBadge');
-      this.p1PowerFillEl = document.getElementById('p1PowerFill');
-      this.p2PowerFillEl = document.getElementById('p2PowerFill');
-      this.p2NameEl = document.getElementById('p2Name');
-      this.p2AvatarEl = document.getElementById('p2Avatar');
-
-      this.overlay = document.getElementById('gameOverlay');
-      this.overlayTitle = document.getElementById('overlayTitle');
-      this.overlayMsg = document.getElementById('overlayMessage');
-      this.overlayMascot = document.getElementById('overlayMascot');
-      this.actionBtn = document.getElementById('actionBtn');
-
-      this.skinsModal = document.getElementById('skinsModal');
-      this.skinsGrid = document.getElementById('skinsGrid');
-      this.closeSkinsBtn = document.getElementById('closeSkinsBtn');
-      this.closeSkinsXBtn = document.getElementById('closeSkinsXBtn');
-
-      // Slime Lab & Currency Elements
-      this.coinsBadge = document.getElementById('coinsBadge');
       this.coinsVal = document.getElementById('coinsVal');
+      this.coinsBadge = document.getElementById('coinsBadge');
+      this.activeSlimeIcon = document.getElementById('activeSlimeIcon');
+      this.activeSlimeName = document.getElementById('activeSlimeName');
+      this.activeStickinessTag = document.getElementById('activeStickinessTag');
+      this.hudStickinessLabel = document.getElementById('hudStickinessLabel');
+      this.hudActionFeedback = document.getElementById('hudActionFeedback');
+      this.statSquishesEl = document.getElementById('statSquishes');
+      this.statStretchesEl = document.getElementById('statStretches');
+      this.soundToggleBtn = document.getElementById('soundToggle');
+      this.resetShapeBtn = document.getElementById('resetShapeBtn');
+
+      // Modals
+      this.openMakerBtn = document.getElementById('openMakerBtn');
+      this.openShopBtn = document.getElementById('openShopBtn');
+      this.slimeMakerModal = document.getElementById('slimeMakerModal');
+      this.closeMakerBtn = document.getElementById('closeMakerBtn');
+      this.closeMakerXBtn = document.getElementById('closeMakerXBtn');
+      this.textureShopModal = document.getElementById('textureShopModal');
+      this.closeShopBtn = document.getElementById('closeShopBtn');
+      this.closeShopXBtn = document.getElementById('closeShopXBtn');
+      this.shopCoinsVal = document.getElementById('shopCoinsVal');
       this.labCoinsVal = document.getElementById('labCoinsVal');
-      this.slimeMakerBtn = document.getElementById('slimeMakerBtn');
-      this.slimeLabModal = document.getElementById('slimeLabModal');
-      this.closeLabBtn = document.getElementById('closeLabBtn');
-      this.closeLabXBtn = document.getElementById('closeLabXBtn');
-      this.tabMakerBtn = document.getElementById('tabMakerBtn');
-      this.tabTexturesBtn = document.getElementById('tabTexturesBtn');
-      this.tabMakerContent = document.getElementById('tabMakerContent');
-      this.tabTexturesContent = document.getElementById('tabTexturesContent');
-      this.slimePreviewCanvas = document.getElementById('slimePreviewCanvas');
-      this.activeTextureLabel = document.getElementById('activeTextureLabel');
+
+      // Slime Maker Recipe Form Elements
+      this.makerTextureSelectRow = document.getElementById('makerTextureSelectRow');
       this.colorPalette = document.getElementById('colorPalette');
       this.customColorPicker = document.getElementById('customColorPicker');
-      this.stickinessValueLabel = document.getElementById('stickinessValueLabel');
+      this.customColorPicker2 = document.getElementById('customColorPicker2');
+      this.dualSwirlToggle = document.getElementById('dualSwirlToggle');
       this.stickinessSlider = document.getElementById('stickinessSlider');
+      this.stickinessValueLabel = document.getElementById('stickinessValueLabel');
       this.stickinessTraitDesc = document.getElementById('stickinessTraitDesc');
-      this.equipCustomSlimeBtn = document.getElementById('equipCustomSlimeBtn');
+      this.stickinessPreviewTag = document.getElementById('stickinessPreviewTag');
+      this.activeTextureLabel = document.getElementById('activeTextureLabel');
+      this.slimePreviewCanvas = document.getElementById('slimePreviewCanvas');
+      this.createSlimeBtn = document.getElementById('createSlimeBtn');
+      this.charmsPickerRow = document.getElementById('charmsPickerRow');
+
+      // Shop
       this.texturesGrid = document.getElementById('texturesGrid');
+
+      // Floating Toolbar Elements
+      this.quickColorsRow = document.getElementById('quickColorsRow');
+      this.quickStickButtons = document.querySelectorAll('.quick-stick-btn');
+      this.toolBtns = {
+        poke: document.getElementById('toolPokeBtn'),
+        swirl: document.getElementById('toolSwirlBtn'),
+        glitter: document.getElementById('toolGlitterBtn'),
+        bubble: document.getElementById('toolBubbleBtn')
+      };
     }
 
     bindEventListeners() {
       // Audio unlock on user touch/click
-      ['click', 'touchstart', 'keydown'].forEach(evt => {
+      ['click', 'touchstart', 'mousedown'].forEach(evt => {
         window.addEventListener(evt, () => {
           if (window.slimeAudio) window.slimeAudio.init();
         }, { once: true, passive: true });
       });
 
-      // Keyboard Controls
+      // Canvas Pointer Coordinate Mapping
+      const getPos = (e) => {
+        const rect = this.canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        return {
+          x: (clientX - rect.left) * scaleX,
+          y: (clientY - rect.top) * scaleY
+        };
+      };
+
+      // 💥 Canvas Mouse Down: Click to Squish or Start Drag Stretch
+      this.canvas.addEventListener('mousedown', (e) => {
+        const pos = getPos(e);
+        this.handlePointerDown(pos.x, pos.y);
+      });
+
+      // ➰ Canvas Mouse Move: Drag Stretch or Hover Stickiness Tracking
+      window.addEventListener('mousemove', (e) => {
+        const pos = getPos(e);
+        this.handlePointerMove(pos.x, pos.y);
+      });
+
+      // Canvas Mouse Up: Release Drag Stretch
+      window.addEventListener('mouseup', () => {
+        this.handlePointerUp();
+      });
+
+      // Mobile Touch Handlers
+      this.canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const pos = getPos(e);
+        this.handlePointerDown(pos.x, pos.y);
+      }, { passive: false });
+
+      this.canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        const pos = getPos(e);
+        this.handlePointerMove(pos.x, pos.y);
+      }, { passive: false });
+
+      this.canvas.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        this.handlePointerUp();
+      }, { passive: false });
+
+      // Keyboard Shortcuts (1-5 change stickiness, R resets shape, M mutes sound)
       window.addEventListener('keydown', (e) => {
-        if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
-          e.preventDefault();
-        }
-
-        const k = e.key.toLowerCase();
-        if (k === 'w') this.keys.w = true;
-        if (k === 'a') this.keys.a = true;
-        if (k === 'd') this.keys.d = true;
-        if (e.code === 'Space') this.keys.space = true;
-
-        if (e.code === 'ArrowUp') this.keys.arrowUp = true;
-        if (e.code === 'ArrowLeft') this.keys.arrowLeft = true;
-        if (e.code === 'ArrowRight') this.keys.arrowRight = true;
-        if (e.code === 'Enter') this.keys.enter = true;
-
-        if (k === 'p') this.togglePause();
-        if (k === 'r') this.restartMatch();
-        if (k === 'm') this.toggleSound();
-        if (e.code === 'Escape') {
-          this.closeSkinsModal();
-          this.closeSlimeLab();
+        if (['1', '2', '3', '4', '5'].includes(e.key)) {
+          this.setStickiness(parseInt(e.key, 10));
+        } else if (e.key.toLowerCase() === 'r') {
+          this.resetShape();
+        } else if (e.key.toLowerCase() === 'm') {
+          this.toggleSound();
+        } else if (e.key === 'Escape') {
+          this.closeMaker();
+          this.closeShop();
         }
       });
 
-      window.addEventListener('keyup', (e) => {
-        const k = e.key.toLowerCase();
-        if (k === 'w') this.keys.w = false;
-        if (k === 'a') this.keys.a = false;
-        if (k === 'd') this.keys.d = false;
-        if (e.code === 'Space') this.keys.space = false;
-
-        if (e.code === 'ArrowUp') this.keys.arrowUp = false;
-        if (e.code === 'ArrowLeft') this.keys.arrowLeft = false;
-        if (e.code === 'ArrowRight') this.keys.arrowRight = false;
-        if (e.code === 'Enter') this.keys.enter = false;
-      });
-
-      // Mobile Touch Controls
-      this.bindTouchControls();
-
-      // Action Button
-      this.actionBtn.addEventListener('click', () => {
-        if (this.state === 'START' || this.state === 'GAMEOVER') {
-          this.startMatch();
-        } else if (this.state === 'PAUSED') {
-          this.togglePause();
-        }
-      });
-
-      // Game Mode Toggle (Volleyball <-> Soccer)
-      this.modeBtn.addEventListener('click', () => {
-        this.mode = this.mode === 'volleyball' ? 'soccer' : 'volleyball';
-        this.ball.mode = this.mode;
-        this.modeBtn.textContent = this.mode === 'volleyball' ? '🏐 Volleyball' : '⚽ Soccer';
-        this.modeBadgeEl.textContent = this.mode.toUpperCase();
-        this.restartMatch();
-      });
-
-      // 1P vs 2P Local Toggle
-      this.playersBtn.addEventListener('click', () => {
-        this.isTwoPlayer = !this.isTwoPlayer;
-        this.playersBtn.textContent = this.isTwoPlayer ? '👥 2P Local' : '👤 1P vs CPU';
-        this.diffContainer.style.display = this.isTwoPlayer ? 'none' : 'flex';
-        this.p2NameEl.textContent = this.isTwoPlayer ? 'Player 2' : 'Robo-Slime';
-        this.p2AvatarEl.textContent = this.isTwoPlayer ? '🔴' : '🤖';
-        this.restartMatch();
-      });
-
-      // Bot Difficulty Select
-      this.difficultySelect.addEventListener('change', (e) => {
-        this.difficulty = e.target.value;
-      });
-
-      // Sound Toggle
-      this.soundToggleBtn.addEventListener('click', () => this.toggleSound());
-
-      // Pause & Restart
-      this.pauseBtn.addEventListener('click', () => this.togglePause());
-      this.restartBtn.addEventListener('click', () => this.restartMatch());
-
-      // Wardrobe Modal
-      this.skinsBtn.addEventListener('click', () => this.openSkinsModal());
-      this.closeSkinsBtn.addEventListener('click', () => this.closeSkinsModal());
-      if (this.closeSkinsXBtn) {
-        this.closeSkinsXBtn.addEventListener('click', () => this.closeSkinsModal());
+      // Header Buttons
+      if (this.soundToggleBtn) {
+        this.soundToggleBtn.addEventListener('click', () => this.toggleSound());
       }
-      this.skinsModal.addEventListener('click', (e) => {
-        if (e.target === this.skinsModal) this.closeSkinsModal();
-      });
+      if (this.resetShapeBtn) {
+        this.resetShapeBtn.addEventListener('click', () => this.resetShape());
+      }
+      if (this.openMakerBtn) {
+        this.openMakerBtn.addEventListener('click', () => this.openMaker());
+      }
+      if (this.closeMakerBtn) {
+        this.closeMakerBtn.addEventListener('click', () => this.closeMaker());
+      }
+      if (this.closeMakerXBtn) {
+        this.closeMakerXBtn.addEventListener('click', () => this.closeMaker());
+      }
+      if (this.openShopBtn) {
+        this.openShopBtn.addEventListener('click', () => this.openShop());
+      }
+      if (this.closeShopBtn) {
+        this.closeShopBtn.addEventListener('click', () => this.closeShop());
+      }
+      if (this.closeShopXBtn) {
+        this.closeShopXBtn.addEventListener('click', () => this.closeShop());
+      }
 
-      // Slime Lab Modal
-      if (this.slimeMakerBtn) {
-        this.slimeMakerBtn.addEventListener('click', () => this.openSlimeLab());
-      }
-      if (this.closeLabBtn) {
-        this.closeLabBtn.addEventListener('click', () => this.closeSlimeLab());
-      }
-      if (this.closeLabXBtn) {
-        this.closeLabXBtn.addEventListener('click', () => this.closeSlimeLab());
-      }
-      if (this.slimeLabModal) {
-        this.slimeLabModal.addEventListener('click', (e) => {
-          if (e.target === this.slimeLabModal) this.closeSlimeLab();
+      // Modals Backdrop Click
+      if (this.slimeMakerModal) {
+        this.slimeMakerModal.addEventListener('click', (e) => {
+          if (e.target === this.slimeMakerModal) this.closeMaker();
         });
+      }
+      if (this.textureShopModal) {
+        this.textureShopModal.addEventListener('click', (e) => {
+          if (e.target === this.textureShopModal) this.closeShop();
+        });
+      }
+
+      // Quick Stickiness Buttons (1 to 5)
+      this.quickStickButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const lvl = parseInt(btn.getAttribute('data-level'), 10);
+          this.setStickiness(lvl);
+        });
+      });
+
+      // Tool Mode Buttons
+      Object.keys(this.toolBtns).forEach(mode => {
+        const btn = this.toolBtns[mode];
+        if (btn) {
+          btn.addEventListener('click', () => {
+            this.setToolMode(mode);
+          });
+        }
+      });
+    }
+
+    // Pointer Interaction Handlers
+    handlePointerDown(x, y) {
+      this.mouse.x = x;
+      this.mouse.y = y;
+      this.mouse.isDown = true;
+
+      // Check if user clicked a bubble
+      for (let i = this.bubbles.length - 1; i >= 0; i--) {
+        if (this.bubbles[i].isHit(x, y)) {
+          this.popBubble(i);
+          return;
+        }
+      }
+
+      // Check if inside or near slime
+      if (this.slime.containsPoint(x, y)) {
+        if (this.activeTool === 'poke') {
+          // 💥 Squish immediately on click
+          this.slime.squish(x, y, 65);
+          this.statSquishes++;
+          this.updateStats();
+
+          // Audio: ASMR squish
+          if (window.slimeAudio) {
+            if (this.slime.texture === 'cloud') {
+              window.slimeAudio.playCloudPuff();
+            } else if (this.slime.texture === 'floam') {
+              window.slimeAudio.playFoamCrunch();
+            } else {
+              window.slimeAudio.playASMRSquish(this.slime.stickiness);
+            }
+          }
+
+          // Particles splash
+          this.spawnSquishParticles(x, y);
+
+          // Rewarded with coin!
+          this.addCoins(1, x, y);
+
+          // Also begin drag stretch so holding & moving stretches putty outward
+          this.slime.startDrag(x, y);
+        } else if (this.activeTool === 'swirl') {
+          // Swirl Knead
+          this.slime.squish(x, y, 40);
+          this.statSquishes++;
+          this.updateStats();
+          if (window.slimeAudio) window.slimeAudio.playASMRSquish(this.slime.stickiness);
+        } else if (this.activeTool === 'glitter') {
+          // Glitter Dust
+          this.spawnGlitterDust(x, y);
+          this.addCoins(1, x, y);
+        } else if (this.activeTool === 'bubble') {
+          // Blow a new bubble on slime
+          this.bubbles.push(new SlimeBubble(x, y, 16 + Math.random() * 14, this.slime.color));
+          if (window.slimeAudio) window.slimeAudio.playASMRSquish(2);
+        }
       }
     }
 
-    bindTouchControls() {
-      const bindBtn = (id, onDown, onUp) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.addEventListener('touchstart', (e) => { e.preventDefault(); onDown(); }, { passive: false });
-        el.addEventListener('touchend', (e) => { e.preventDefault(); onUp(); }, { passive: false });
-        el.addEventListener('mousedown', (e) => { e.preventDefault(); onDown(); });
-        el.addEventListener('mouseup', (e) => { e.preventDefault(); onUp(); });
-      };
+    handlePointerMove(x, y) {
+      this.mouse.x = x;
+      this.mouse.y = y;
 
-      bindBtn('btnTouchLeft', () => { this.keys.a = true; }, () => { this.keys.a = false; });
-      bindBtn('btnTouchRight', () => { this.keys.d = true; }, () => { this.keys.d = false; });
-      bindBtn('btnTouchJump', () => { this.keys.w = true; }, () => { this.keys.w = false; });
-      bindBtn('btnTouchSpike', () => { this.keys.space = true; setTimeout(() => { this.keys.space = false; }, 200); }, () => {});
+      if (this.mouse.isDown && this.slime.isDragging) {
+        // ➰ Dragging stretches putty outward!
+        this.slime.updateDrag(x, y);
+        if (window.slimeAudio && Math.random() < 0.15) {
+          window.slimeAudio.playStretch(1.0);
+        }
+      } else {
+        // 🖐️ Hovering without clicking: Soft-Body Hover Adhesion
+        // Updates hover stickiness and triggers unstick release pop if timer expires
+        const unstickEvent = this.slime.updateHover(x, y, 0.016, window.slimeAudio);
+        if (unstickEvent) {
+          this.spawnUnstickParticles(unstickEvent.x, unstickEvent.y);
+          this.addCoins(2, unstickEvent.x, unstickEvent.y, '+2 🪙');
+          if (this.hudActionFeedback) {
+            this.hudActionFeedback.textContent = `🍯 Unstuck! (Level ${unstickEvent.stickiness} release pop)`;
+            setTimeout(() => {
+              if (this.hudActionFeedback) this.hudActionFeedback.textContent = '🖐️ Hover to stick · Click to squish · Drag to stretch!';
+            }, 1200);
+          }
+        }
+      }
+    }
+
+    handlePointerUp() {
+      if (this.mouse.isDown) {
+        this.mouse.isDown = false;
+        if (this.slime.isDragging) {
+          // Snap back putty stretch!
+          this.slime.endDrag();
+          this.statStretches++;
+          this.updateStats();
+          this.addCoins(3, this.mouse.x, this.mouse.y, '+3 🪙');
+
+          if (window.slimeAudio) {
+            window.slimeAudio.playStickRelease(this.slime.stickiness);
+          }
+        }
+      }
+    }
+
+    popBubble(idx) {
+      const b = this.bubbles[idx];
+      this.bubbles.splice(idx, 1);
+
+      // Bubble pop particles
+      for (let i = 0; i < 10; i++) {
+        this.particles.push(new Particle(b.x, b.y, 'rgba(255, 255, 255, 0.9)', 3, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, 0.5, true));
+      }
+
+      if (window.slimeAudio) window.slimeAudio.playNoise(0.04, 0.3, 1600);
+      this.addCoins(5, b.x, b.y, '+5 🪙');
+    }
+
+    spawnSquishParticles(x, y) {
+      const count = this.slime.texture === 'floam' ? 12 : 8;
+      for (let i = 0; i < count; i++) {
+        let col = this.slime.color;
+        if (this.slime.texture === 'cloud') {
+          col = 'rgba(255, 255, 255, 0.85)';
+        } else if (this.slime.texture === 'floam') {
+          const beadCols = ['#ffffff', '#ff99c8', '#70e000', '#ffd166', '#00f5d4'];
+          col = beadCols[i % beadCols.length];
+        } else if (this.slime.texture === 'glitter' || this.slime.texture === 'gold') {
+          col = '#ffd166';
+        }
+        this.particles.push(new Particle(x, y, col, 4.5, (Math.random() - 0.5) * 9, (Math.random() - 0.5) * 9, 0.65, true));
+      }
+    }
+
+    spawnUnstickParticles(x, y) {
+      for (let i = 0; i < 6; i++) {
+        this.particles.push(new Particle(x, y, this.slime.color, 3.5, (Math.random() - 0.5) * 4, 1 + Math.random() * 3, 0.7, true));
+      }
+    }
+
+    spawnGlitterDust(x, y) {
+      for (let i = 0; i < 14; i++) {
+        this.particles.push(new Particle(x + (Math.random() - 0.5) * 40, y + (Math.random() - 0.5) * 40, '#ffd166', 3.5, (Math.random() - 0.5) * 3, -1 - Math.random() * 3, 0.9, false));
+      }
+      if (window.slimeAudio) window.slimeAudio.playNoise(0.03, 0.15, 2000);
+    }
+
+    addCoins(amt, x = CANVAS_WIDTH / 2, y = CANVAS_HEIGHT / 2, text = null) {
+      this.coins += amt;
+      localStorage.setItem('slime_coins', this.coins);
+      if (this.coinsVal) this.coinsVal.textContent = this.coins;
+      if (this.shopCoinsVal) this.shopCoinsVal.textContent = this.coins;
+      if (this.labCoinsVal) this.labCoinsVal.textContent = this.coins;
+
+      // Spawn floating coin popup
+      this.floatingCoins.push(new FloatingCoin(x, y - 20, text || `+${amt} 🪙`));
+
+      // Coin bounce animation on header
+      if (this.coinsBadge) {
+        this.coinsBadge.classList.remove('bump');
+        void this.coinsBadge.offsetWidth;
+        this.coinsBadge.classList.add('bump');
+      }
+    }
+
+    updateStats() {
+      if (this.statSquishesEl) this.statSquishesEl.textContent = this.statSquishes;
+      if (this.statStretchesEl) this.statStretchesEl.textContent = this.statStretches;
+    }
+
+    setStickiness(lvl) {
+      this.slime.stickiness = lvl;
+      this.slime.hoverStickMax = STICKINESS_HOLD_TIMES[lvl] || 1.5;
+
+      // Update toolbar active button
+      this.quickStickButtons.forEach(b => {
+        const blvl = parseInt(b.getAttribute('data-level'), 10);
+        b.classList.toggle('active', blvl === lvl);
+      });
+
+      // Update HUD & Chip labels
+      const trait = STICKINESS_TRAITS[lvl];
+      if (this.activeStickinessTag && trait) {
+        this.activeStickinessTag.textContent = `Stickiness: ${trait.name} (${trait.hold}s Hover Stick)`;
+      }
+      if (this.hudStickinessLabel && trait) {
+        this.hudStickinessLabel.textContent = `Level ${lvl} (${trait.hold}s)`;
+      }
+
+      if (window.slimeAudio) window.slimeAudio.playASMRSquish(lvl);
+    }
+
+    setToolMode(mode) {
+      this.activeTool = mode;
+      Object.keys(this.toolBtns).forEach(m => {
+        if (this.toolBtns[m]) {
+          this.toolBtns[m].classList.toggle('active', m === mode);
+        }
+      });
+    }
+
+    resetShape() {
+      // Restore all 32 vertices to resting radius
+      this.slime.vertices.forEach(v => {
+        v.r = this.slime.baseRadius;
+        v.v = 0;
+      });
+      this.slime.globalWobble = 0.4;
+      if (window.slimeAudio) window.slimeAudio.playASMRSquish(this.slime.stickiness);
+    }
+
+    toggleSound() {
+      if (!window.slimeAudio) return;
+      const isMuted = window.slimeAudio.toggleMute();
+      this.soundToggleBtn.textContent = isMuted ? '🔇 Sound: OFF' : '🔊 Sound: ON';
+      this.soundToggleBtn.classList.toggle('muted', isMuted);
     }
 
     // Responsive Canvas Screen Warper
@@ -1136,193 +1323,279 @@
       this.canvasWrapper.style.height = `${Math.floor(h)}px`;
     }
 
-    toggleSound() {
-      if (!window.slimeAudio) return;
-      const isMuted = window.slimeAudio.toggleMute();
-      this.soundToggleBtn.textContent = isMuted ? '🔇 Sound: OFF' : '🔊 Sound: ON';
-      this.soundToggleBtn.classList.toggle('muted', isMuted);
-    }
-
-    togglePause() {
-      if (this.state === 'START' || this.state === 'GAMEOVER') return;
-      if (this.state === 'PAUSED') {
-        this.state = 'PLAYING';
-        this.overlay.classList.add('hidden');
-        this.pauseBtn.textContent = '⏸ Pause';
-      } else {
-        this.state = 'PAUSED';
-        this.overlayTitle.textContent = 'Game Paused';
-        this.overlayMsg.textContent = 'Match is on hold. Press Resume to jump back into action!';
-        this.actionBtn.textContent = 'Resume';
-        this.overlay.classList.remove('hidden');
-        this.pauseBtn.textContent = '▶ Resume';
-      }
-    }
-
-    openSkinsModal() {
-      this.skinsModal.classList.remove('hidden');
-      if (this.state === 'PLAYING') this.togglePause();
-      this.buildSkinsGrid();
-    }
-
-    closeSkinsModal() {
-      this.skinsModal.classList.add('hidden');
-      this.warpGameToScreen();
-    }
-
-    // Slime Currency Management
-    initSlimeCoins() {
-      if (this.coinsVal) this.coinsVal.textContent = this.coins;
-      if (this.labCoinsVal) this.labCoinsVal.textContent = this.coins;
-    }
-
-    addCoins(amt) {
-      this.coins = Math.max(0, this.coins + amt);
-      localStorage.setItem('slime_coins', this.coins);
-      if (this.coinsVal) this.coinsVal.textContent = this.coins;
-      if (this.labCoinsVal) this.labCoinsVal.textContent = this.coins;
-
-      if (amt > 0) {
-        if (this.coinsBadge) {
-          this.coinsBadge.classList.remove('bump');
-          void this.coinsBadge.offsetWidth;
-          this.coinsBadge.classList.add('bump');
-        }
-        if (window.slimeAudio) window.slimeAudio.playCoinSound();
-      }
-    }
-
-    // Slime Lab Controller
-    openSlimeLab() {
-      if (!this.slimeLabModal) return;
-      this.slimeLabModal.classList.remove('hidden');
-      if (this.state === 'PLAYING') this.togglePause();
-      this.renderColorPalette();
-      this.renderTexturesGrid();
-      if (this.labCoinsVal) this.labCoinsVal.textContent = this.coins;
-      const texObj = SLIME_TEXTURES[this.makerTexture];
-      if (this.activeTextureLabel && texObj) {
-        this.activeTextureLabel.innerHTML = `Texture: <strong>${texObj.name}</strong>`;
-      }
-    }
-
-    closeSlimeLab() {
-      if (!this.slimeLabModal) return;
-      this.slimeLabModal.classList.add('hidden');
-      this.warpGameToScreen();
-    }
-
-    initSlimeLab() {
-      // Tab switcher
-      if (this.tabMakerBtn && this.tabTexturesBtn) {
-        this.tabMakerBtn.addEventListener('click', () => {
-          this.tabMakerBtn.classList.add('active');
-          this.tabTexturesBtn.classList.remove('active');
-          if (this.tabMakerContent) this.tabMakerContent.classList.remove('hidden');
-          if (this.tabTexturesContent) this.tabTexturesContent.classList.add('hidden');
-        });
-
-        this.tabTexturesBtn.addEventListener('click', () => {
-          this.tabTexturesBtn.classList.add('active');
-          this.tabMakerBtn.classList.remove('active');
-          if (this.tabTexturesContent) this.tabTexturesContent.classList.remove('hidden');
-          if (this.tabMakerContent) this.tabMakerContent.classList.add('hidden');
-          this.renderTexturesGrid();
+    // --- Slime Studio Initialization & UI Population ---
+    initStudio() {
+      // 1. Populate Quick Colors in bottom toolbar
+      if (this.quickColorsRow) {
+        this.quickColorsRow.innerHTML = '';
+        PRESET_COLORS.slice(0, 7).forEach(c => {
+          const dot = document.createElement('div');
+          dot.className = `quick-color-dot ${this.slime.color === c.hex ? 'active' : ''}`;
+          dot.style.backgroundColor = c.hex;
+          dot.title = c.name;
+          dot.addEventListener('click', () => {
+            this.slime.color = c.hex;
+            document.querySelectorAll('.quick-color-dot').forEach(d => d.classList.remove('active'));
+            dot.classList.add('active');
+            if (window.slimeAudio) window.slimeAudio.playASMRSquish(this.slime.stickiness);
+          });
+          this.quickColorsRow.appendChild(dot);
         });
       }
 
-      // Stickiness slider
+      // 2. Setup Slime Maker Studio Form
+      this.initSlimeMakerForm();
+
+      // 3. Setup Texture Boutique Shop
+      this.initTextureShop();
+
+      // Update header labels
+      this.updateHeaderProfile();
+    }
+
+    updateHeaderProfile() {
+      const tex = SLIME_TEXTURES[this.slime.texture] || SLIME_TEXTURES.cloud;
+      if (this.activeSlimeIcon) this.activeSlimeIcon.textContent = tex.icon;
+      if (this.activeSlimeName) this.activeSlimeName.textContent = tex.name;
+      const trait = STICKINESS_TRAITS[this.slime.stickiness] || STICKINESS_TRAITS[3];
+      if (this.activeStickinessTag) {
+        this.activeStickinessTag.textContent = `Stickiness: ${trait.name} (${trait.hold}s Hover Stick)`;
+      }
+      if (this.coinsVal) this.coinsVal.textContent = this.coins;
+    }
+
+    // Slime Maker Recipe Dialog Initialization
+    initSlimeMakerForm() {
+      // A. Textures Selector in Maker
+      if (this.makerTextureSelectRow) {
+        this.makerTextureSelectRow.innerHTML = '';
+        Object.values(SLIME_TEXTURES).forEach(t => {
+          const isOwned = this.unlockedTextures.includes(t.id);
+          const btn = document.createElement('button');
+          btn.className = `texture-select-btn ${this.slime.texture === t.id ? 'active' : ''}`;
+          btn.innerHTML = `${t.icon} <span>${t.name}</span>`;
+          if (!isOwned) {
+            btn.innerHTML += ` <small style="color:#ffd166;">(🪙${t.price})</small>`;
+          }
+          btn.addEventListener('click', () => {
+            if (!isOwned) {
+              // Open texture shop to purchase
+              this.closeMaker();
+              this.openShop();
+              return;
+            }
+            this.makerSelectedTexture = t.id;
+            document.querySelectorAll('.texture-select-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if (this.activeTextureLabel) {
+              this.activeTextureLabel.innerHTML = `Texture: <strong>${t.name}</strong>`;
+            }
+            if (window.slimeAudio) {
+              if (t.id === 'cloud') window.slimeAudio.playCloudPuff();
+              else if (t.id === 'floam') window.slimeAudio.playFoamCrunch();
+              else window.slimeAudio.playASMRSquish(3);
+            }
+          });
+          this.makerTextureSelectRow.appendChild(btn);
+        });
+      }
+
+      // B. Color Palette Swatches
+      if (this.colorPalette) {
+        this.colorPalette.innerHTML = '';
+        PRESET_COLORS.forEach(c => {
+          const sw = document.createElement('div');
+          sw.className = `color-swatch ${this.slime.color === c.hex ? 'active' : ''}`;
+          sw.style.backgroundColor = c.hex;
+          sw.title = c.name;
+          sw.addEventListener('click', () => {
+            this.makerSelectedColor = c.hex;
+            if (this.customColorPicker) this.customColorPicker.value = c.hex;
+            document.querySelectorAll('.color-palette .color-swatch').forEach(s => s.classList.remove('active'));
+            sw.classList.add('active');
+            if (window.slimeAudio) window.slimeAudio.playASMRSquish(3);
+          });
+          this.colorPalette.appendChild(sw);
+        });
+      }
+
+      // C. Custom Color Picker & Dual Swirl
+      if (this.customColorPicker) {
+        this.customColorPicker.addEventListener('input', (e) => {
+          this.makerSelectedColor = e.target.value;
+          document.querySelectorAll('.color-palette .color-swatch').forEach(s => s.classList.remove('active'));
+        });
+      }
+
+      if (this.dualSwirlToggle && this.customColorPicker2) {
+        this.dualSwirlToggle.addEventListener('change', (e) => {
+          this.customColorPicker2.classList.toggle('hidden', !e.target.checked);
+        });
+      }
+
+      // D. Stickiness Slider
       if (this.stickinessSlider) {
-        this.stickinessSlider.value = this.makerStickiness;
+        this.stickinessSlider.value = this.slime.stickiness;
         this.stickinessSlider.addEventListener('input', (e) => {
-          this.makerStickiness = parseInt(e.target.value, 10);
-          const trait = STICKINESS_TRAITS[this.makerStickiness];
+          const lvl = parseInt(e.target.value, 10);
+          const trait = STICKINESS_TRAITS[lvl];
           if (this.stickinessValueLabel && trait) {
             this.stickinessValueLabel.textContent = trait.name;
           }
           if (this.stickinessTraitDesc && trait) {
             this.stickinessTraitDesc.textContent = trait.desc;
           }
-          if (window.slimeAudio) {
-            window.slimeAudio.playASMRSquish(this.makerStickiness);
+          if (this.stickinessPreviewTag && trait) {
+            this.stickinessPreviewTag.innerHTML = `Hold Time: <strong>${trait.hold}s Hover Stick</strong>`;
           }
+          if (window.slimeAudio) window.slimeAudio.playASMRSquish(lvl);
         });
       }
 
-      // Custom Color Picker
-      if (this.customColorPicker) {
-        this.customColorPicker.value = this.makerColor;
-        this.customColorPicker.addEventListener('input', (e) => {
-          this.makerColor = e.target.value;
-          document.querySelectorAll('.color-swatch').forEach(sw => sw.classList.remove('active'));
+      // E. Charms Chips
+      if (this.charmsPickerRow) {
+        this.charmsPickerRow.querySelectorAll('.charm-chip').forEach(chip => {
+          chip.addEventListener('click', () => {
+            this.charmsPickerRow.querySelectorAll('.charm-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            this.makerSelectedCharm = chip.getAttribute('data-charm');
+          });
         });
       }
 
-      // Equip Custom Slime Button
-      if (this.equipCustomSlimeBtn) {
-        this.equipCustomSlimeBtn.addEventListener('click', () => {
-          this.customSlimeData = {
-            color: this.makerColor,
-            stickiness: this.makerStickiness,
-            texture: this.makerTexture,
-            isEquipped: true
-          };
-          localStorage.setItem('slime_custom_data', JSON.stringify(this.customSlimeData));
-          this.p1.applyCustomConfig(this.customSlimeData);
+      // F. Mix & Pour Slime Action Button
+      if (this.createSlimeBtn) {
+        this.createSlimeBtn.addEventListener('click', () => {
+          const color = this.makerSelectedColor || (this.customColorPicker ? this.customColorPicker.value : '#80deea');
+          const secondaryColor = this.customColorPicker2 ? this.customColorPicker2.value : '#ff80bf';
+          const hasDualSwirl = this.dualSwirlToggle ? this.dualSwirlToggle.checked : false;
+          const texture = this.makerSelectedTexture || this.slime.texture;
+          const stickiness = this.stickinessSlider ? parseInt(this.stickinessSlider.value, 10) : 3;
+          const charm = this.makerSelectedCharm || 'none';
 
-          const texObj = SLIME_TEXTURES[this.makerTexture];
-          const avatar = texObj ? texObj.icon : '🧪';
-          const p1AvatarEl = document.getElementById('p1Avatar');
-          if (p1AvatarEl) p1AvatarEl.textContent = avatar;
+          // Apply recipe to main slime
+          this.slime.applyRecipe({
+            color,
+            secondaryColor,
+            hasDualSwirl,
+            texture,
+            stickiness,
+            charm
+          });
 
-          const prevText = this.equipCustomSlimeBtn.textContent;
-          this.equipCustomSlimeBtn.textContent = '✓ Slime Equipped & Ready!';
-          this.equipCustomSlimeBtn.style.transform = 'scale(1.03)';
-          setTimeout(() => {
-            this.equipCustomSlimeBtn.textContent = prevText;
-            this.equipCustomSlimeBtn.style.transform = '';
-          }, 1400);
+          // Reset shape for fresh pour
+          this.resetShape();
+          this.updateHeaderProfile();
+          this.setStickiness(stickiness);
 
+          // Rewarded with crafting bonus coins!
+          this.addCoins(25, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '+25 🪙 Crafted!');
+
+          // Play triumph celebration sound
           if (window.slimeAudio) window.slimeAudio.playBuySound();
+
+          // Button feedback
+          this.createSlimeBtn.textContent = '✨ Poured & Ready!';
+          setTimeout(() => {
+            this.createSlimeBtn.textContent = '✨ Mix & Pour My Slime!';
+            this.closeMaker();
+          }, 700);
         });
       }
 
-      this.renderColorPalette();
-      this.renderTexturesGrid();
-      this.setupSlimePreviewBowl();
+      // G. Setup Live Recipe Preview Bowl Loop
+      this.setupMakerBowlPreview();
     }
 
-    renderColorPalette() {
-      if (!this.colorPalette) return;
-      this.colorPalette.innerHTML = '';
+    setupMakerBowlPreview() {
+      const canvas = this.slimePreviewCanvas;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const cw = canvas.width;
+      const ch = canvas.height;
 
-      PRESET_COLORS.forEach(c => {
-        const swatch = document.createElement('div');
-        swatch.className = `color-swatch ${this.makerColor.toLowerCase() === c.hex.toLowerCase() ? 'active' : ''}`;
-        swatch.style.backgroundColor = c.hex;
-        swatch.title = c.name;
+      const render = () => {
+        ctx.clearRect(0, 0, cw, ch);
 
-        swatch.addEventListener('click', () => {
-          this.makerColor = c.hex;
-          if (this.customColorPicker) this.customColorPicker.value = c.hex;
-          this.renderColorPalette();
-          if (window.slimeAudio) window.slimeAudio.playASMRSquish(this.makerStickiness);
-        });
+        const bowlX = cw / 2;
+        const bowlY = ch * 0.72;
+        const bowlR = 68;
 
-        this.colorPalette.appendChild(swatch);
-      });
+        // Bowl back
+        ctx.save();
+        ctx.fillStyle = '#162842';
+        ctx.beginPath();
+        ctx.ellipse(bowlX, bowlY, bowlR, 24, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Slime Blob preview
+        const curCol = this.makerSelectedColor || (this.customColorPicker ? this.customColorPicker.value : '#80deea');
+        const grad = ctx.createRadialGradient(bowlX - 10, bowlY - 24, 5, bowlX, bowlY, bowlR);
+        const curGrad = generateSlimeGradient(curCol);
+        grad.addColorStop(0, curGrad[0]);
+        grad.addColorStop(0.3, curGrad[1]);
+        grad.addColorStop(0.7, curGrad[2]);
+        grad.addColorStop(1, curGrad[3]);
+
+        ctx.fillStyle = grad;
+        ctx.strokeStyle = '#1e2430';
+        ctx.lineWidth = 2.5;
+
+        ctx.beginPath();
+        ctx.moveTo(bowlX - bowlR * 0.7, bowlY + 4);
+        ctx.quadraticCurveTo(bowlX - 35, bowlY - 32, bowlX, bowlY - 34);
+        ctx.quadraticCurveTo(bowlX + 35, bowlY - 32, bowlX + bowlR * 0.7, bowlY + 4);
+        ctx.quadraticCurveTo(bowlX, bowlY + 16, bowlX - bowlR * 0.7, bowlY + 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Texture details in preview bowl
+        const curTex = this.makerSelectedTexture || this.slime.texture;
+        if (curTex === 'cloud') {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+          ctx.beginPath();
+          ctx.arc(bowlX - 16, bowlY - 22, 14, 0, Math.PI * 2);
+          ctx.arc(bowlX + 16, bowlY - 22, 14, 0, Math.PI * 2);
+          ctx.arc(bowlX, bowlY - 26, 16, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (curTex === 'floam') {
+          const beadColors = ['#ffffff', '#ff99c8', '#70e000', '#ffd166', '#00f5d4'];
+          [[-20, -10], [-8, -20], [10, -18], [22, -8], [0, -6]].forEach(([ox, oy], i) => {
+            ctx.fillStyle = beadColors[i % beadColors.length];
+            ctx.beginPath();
+            ctx.arc(bowlX + ox, bowlY + oy, 4, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        }
+
+        // Bowl front rim
+        ctx.save();
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = '#2b4d75';
+        ctx.beginPath();
+        ctx.ellipse(bowlX, bowlY, bowlR, 22, 0, 0, Math.PI);
+        ctx.stroke();
+        ctx.restore();
+
+        requestAnimationFrame(render);
+      };
+
+      requestAnimationFrame(render);
     }
 
-    renderTexturesGrid() {
+    // Texture Shop Modal Initialization
+    initTextureShop() {
       if (!this.texturesGrid) return;
       this.texturesGrid.innerHTML = '';
 
-      Object.values(SLIME_TEXTURES).forEach(tex => {
-        const isOwned = this.unlockedTextures.includes(tex.id);
-        const isEquipped = this.makerTexture === tex.id;
+      Object.values(SLIME_TEXTURES).forEach(t => {
+        const isOwned = this.unlockedTextures.includes(t.id);
+        const isActive = this.slime.texture === t.id;
 
         const card = document.createElement('div');
-        card.className = `texture-card ${isEquipped ? 'equipped' : ''}`;
+        card.className = `texture-card ${isActive ? 'equipped' : ''}`;
 
         // Preview Canvas
         const preview = document.createElement('canvas');
@@ -1330,25 +1603,25 @@
         preview.height = 55;
         preview.className = 'texture-preview-canvas';
         const pCtx = preview.getContext('2d');
-        this.drawTexturePreview(pCtx, tex);
+        this.drawTextureShopPreview(pCtx, t);
 
         const nameEl = document.createElement('div');
         nameEl.className = 'texture-name';
-        nameEl.textContent = tex.name;
+        nameEl.textContent = t.name;
 
         const tagEl = document.createElement('div');
         tagEl.className = 'texture-price-tag';
-        tagEl.textContent = isOwned ? 'UNLOCKED' : `🪙 ${tex.price} Coins`;
+        tagEl.textContent = isOwned ? 'UNLOCKED' : `🪙 ${t.price} Coins`;
 
         const descEl = document.createElement('div');
         descEl.className = 'texture-desc';
-        descEl.textContent = tex.desc;
+        descEl.textContent = t.desc;
 
         const btn = document.createElement('button');
         btn.className = 'btn btn-texture-action';
 
         if (isOwned) {
-          if (isEquipped) {
+          if (isActive) {
             btn.className += ' btn-texture-equip';
             btn.textContent = '✓ Active';
             btn.disabled = true;
@@ -1356,36 +1629,33 @@
             btn.className += ' btn-texture-equip';
             btn.textContent = 'Equip Texture';
             btn.addEventListener('click', () => {
-              this.makerTexture = tex.id;
-              if (this.activeTextureLabel) {
-                this.activeTextureLabel.innerHTML = `Texture: <strong>${tex.name}</strong>`;
-              }
-              this.renderTexturesGrid();
+              this.slime.texture = t.id;
+              this.initTextureShop();
+              this.initSlimeMakerForm();
+              this.updateHeaderProfile();
               if (window.slimeAudio) {
-                if (tex.id === 'cloud') window.slimeAudio.playCloudPuff();
-                else if (tex.id === 'floam') window.slimeAudio.playFoamCrunch();
-                else window.slimeAudio.playASMRSquish(this.makerStickiness);
+                if (t.id === 'cloud') window.slimeAudio.playCloudPuff();
+                else if (t.id === 'floam') window.slimeAudio.playFoamCrunch();
+                else window.slimeAudio.playASMRSquish(3);
               }
             });
           }
         } else {
           btn.className += ' btn-texture-buy';
-          const canAfford = this.coins >= tex.price;
-          btn.textContent = canAfford ? `Buy for 🪙${tex.price}` : `Need ${tex.price - this.coins} more 🪙`;
-          if (!canAfford) {
-            btn.style.opacity = '0.65';
-          }
+          const canAfford = this.coins >= t.price;
+          btn.textContent = canAfford ? `Buy for 🪙${t.price}` : `Need ${t.price - this.coins} more 🪙`;
+          if (!canAfford) btn.style.opacity = '0.65';
+
           btn.addEventListener('click', () => {
-            if (this.coins >= tex.price) {
-              this.addCoins(-tex.price);
-              this.unlockedTextures.push(tex.id);
+            if (this.coins >= t.price) {
+              this.addCoins(-t.price);
+              this.unlockedTextures.push(t.id);
               localStorage.setItem('slime_unlocked_textures', JSON.stringify(this.unlockedTextures));
-              this.makerTexture = tex.id;
-              if (this.activeTextureLabel) {
-                this.activeTextureLabel.innerHTML = `Texture: <strong>${tex.name}</strong>`;
-              }
+              this.slime.texture = t.id;
+              this.initTextureShop();
+              this.initSlimeMakerForm();
+              this.updateHeaderProfile();
               if (window.slimeAudio) window.slimeAudio.playBuySound();
-              this.renderTexturesGrid();
             } else {
               if (this.coinsBadge) {
                 this.coinsBadge.classList.remove('bump');
@@ -1406,37 +1676,37 @@
       });
     }
 
-    drawTexturePreview(ctx, tex) {
+    drawTextureShopPreview(ctx, t) {
       ctx.save();
       ctx.translate(40, 48);
 
       const r = 34;
       const grad = ctx.createRadialGradient(-10, -20, 5, 0, 0, r);
-      if (tex.id === 'gold') {
+      if (t.id === 'gold') {
         grad.addColorStop(0, '#fffbe0');
         grad.addColorStop(0.35, '#ffd700');
         grad.addColorStop(0.5, '#cca000');
         grad.addColorStop(0.52, '#fff3a8');
         grad.addColorStop(0.8, '#b8860b');
         grad.addColorStop(1, '#5c4308');
-      } else if (tex.id === 'cloud') {
+      } else if (t.id === 'cloud') {
         grad.addColorStop(0, '#e0f7fa');
         grad.addColorStop(0.3, '#b2ebf2');
         grad.addColorStop(0.7, '#80deea');
         grad.addColorStop(1, '#26c6da');
-      } else if (tex.id === 'crystal') {
+      } else if (t.id === 'crystal') {
         grad.addColorStop(0, 'rgba(224, 247, 250, 0.9)');
         grad.addColorStop(0.5, 'rgba(128, 222, 234, 0.7)');
         grad.addColorStop(1, 'rgba(0, 188, 212, 0.5)');
-      } else if (tex.id === 'floam') {
+      } else if (t.id === 'floam') {
         grad.addColorStop(0, '#ffccd5');
         grad.addColorStop(0.4, '#ff758f');
         grad.addColorStop(1, '#c9184a');
-      } else if (tex.id === 'butter') {
+      } else if (t.id === 'butter') {
         grad.addColorStop(0, '#fff3b0');
         grad.addColorStop(0.4, '#ffe66d');
         grad.addColorStop(1, '#e9c46a');
-      } else if (tex.id === 'glitter') {
+      } else if (t.id === 'glitter') {
         grad.addColorStop(0, '#e0aaff');
         grad.addColorStop(0.4, '#c77dff');
         grad.addColorStop(1, '#7b2cbf');
@@ -1455,15 +1725,15 @@
       ctx.fill();
       ctx.stroke();
 
-      // Texture Overlays on preview mini-dome
-      if (tex.id === 'cloud') {
+      // Texture Specific Overlays
+      if (t.id === 'cloud') {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.beginPath();
         ctx.arc(-14, -14, 11, 0, Math.PI * 2);
         ctx.arc(0, -22, 12, 0, Math.PI * 2);
         ctx.arc(14, -14, 10, 0, Math.PI * 2);
         ctx.fill();
-      } else if (tex.id === 'floam') {
+      } else if (t.id === 'floam') {
         const beads = ['#fff', '#00f5d4', '#ffd166', '#ff007f'];
         [[-16, -10], [-6, -20], [8, -16], [16, -8], [-2, -8]].forEach(([bx, by], i) => {
           ctx.fillStyle = beads[i % beads.length];
@@ -1471,21 +1741,21 @@
           ctx.arc(bx, by, 3.2, 0, Math.PI * 2);
           ctx.fill();
         });
-      } else if (tex.id === 'butter') {
+      } else if (t.id === 'butter') {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.moveTo(-18, -10);
         ctx.quadraticCurveTo(0, -22, 18, -8);
         ctx.stroke();
-      } else if (tex.id === 'glitter') {
+      } else if (t.id === 'glitter') {
         ctx.fillStyle = '#fff3a8';
         [[-12, -14], [10, -18], [0, -8]].forEach(([sx, sy]) => {
           ctx.beginPath();
           ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
           ctx.fill();
         });
-      } else if (tex.id === 'crystal') {
+      } else if (t.id === 'crystal') {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -1495,871 +1765,67 @@
         ctx.stroke();
       }
 
-      // Eye
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.arc(12, -14, 5.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = '#111';
-      ctx.beginPath();
-      ctx.arc(14, -14, 2.8, 0, Math.PI * 2);
-      ctx.fill();
-
       ctx.restore();
     }
 
-    // Interactive Squish & Poke Bowl Canvas
-    setupSlimePreviewBowl() {
-      const canvas = this.slimePreviewCanvas;
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      const cw = canvas.width;
-      const ch = canvas.height;
-
-      const bowlX = cw / 2;
-      const bowlY = ch * 0.76;
-      const bowlR = 72;
-
-      const slimeState = {
-        apexX: bowlX,
-        apexY: bowlY - 34,
-        vx: 0,
-        vy: 0,
-        isDragging: false,
-        wobble: 0,
-        particles: []
-      };
-
-      const getCanvasPos = (evt) => {
-        const rect = canvas.getBoundingClientRect();
-        const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-        const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        return {
-          x: (clientX - rect.left) * scaleX,
-          y: (clientY - rect.top) * scaleY
-        };
-      };
-
-      const handlePointerDown = (evt) => {
-        const pos = getCanvasPos(evt);
-        const dist = Math.hypot(pos.x - slimeState.apexX, pos.y - slimeState.apexY);
-        if (dist < 60) {
-          slimeState.isDragging = true;
-          slimeState.apexX = pos.x;
-          slimeState.apexY = pos.y;
-          slimeState.wobble = 0.5;
-
-          if (window.slimeAudio) {
-            window.slimeAudio.playASMRSquish(this.makerStickiness);
-          }
-
-          for (let i = 0; i < 6; i++) {
-            slimeState.particles.push({
-              x: pos.x,
-              y: pos.y,
-              vx: (Math.random() - 0.5) * 4,
-              vy: (Math.random() - 0.5) * 4,
-              color: this.makerColor,
-              life: 0.6
-            });
-          }
-        }
-      };
-
-      const handlePointerMove = (evt) => {
-        if (!slimeState.isDragging) return;
-        const pos = getCanvasPos(evt);
-        const maxDist = 72;
-        const dx = pos.x - bowlX;
-        const dy = pos.y - (bowlY - 20);
-        const dist = Math.hypot(dx, dy);
-        if (dist > maxDist) {
-          slimeState.apexX = bowlX + (dx / dist) * maxDist;
-          slimeState.apexY = (bowlY - 20) + (dy / dist) * maxDist;
-        } else {
-          slimeState.apexX = pos.x;
-          slimeState.apexY = pos.y;
-        }
-      };
-
-      const handlePointerUp = () => {
-        if (slimeState.isDragging) {
-          slimeState.isDragging = false;
-          slimeState.wobble = 0.6 + this.makerStickiness * 0.1;
-
-          if (window.slimeAudio) {
-            if (this.makerTexture === 'cloud') {
-              window.slimeAudio.playCloudPuff();
-            } else if (this.makerTexture === 'floam') {
-              window.slimeAudio.playFoamCrunch();
-            } else {
-              window.slimeAudio.playASMRSquish(this.makerStickiness);
-            }
-          }
-        }
-      };
-
-      canvas.addEventListener('mousedown', handlePointerDown);
-      window.addEventListener('mousemove', handlePointerMove);
-      window.addEventListener('mouseup', handlePointerUp);
-
-      canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handlePointerDown(e); }, { passive: false });
-      window.addEventListener('touchmove', handlePointerMove, { passive: true });
-      window.addEventListener('touchend', handlePointerUp, { passive: true });
-
-      const renderBowl = () => {
-        ctx.clearRect(0, 0, cw, ch);
-
-        const restX = bowlX;
-        const restY = bowlY - 32;
-        if (!slimeState.isDragging) {
-          const k = 0.18;
-          const damping = 0.78 - (this.makerStickiness - 1) * 0.04;
-          const ax = (restX - slimeState.apexX) * k;
-          const ay = (restY - slimeState.apexY) * k;
-          slimeState.vx = (slimeState.vx + ax) * damping;
-          slimeState.vy = (slimeState.vy + ay) * damping;
-          slimeState.apexX += slimeState.vx;
-          slimeState.apexY += slimeState.vy;
-          slimeState.wobble *= 0.94;
-        }
-
-        // Draw Ceramic Bowl Interior / Back
-        ctx.save();
-        ctx.fillStyle = '#162842';
-        ctx.beginPath();
-        ctx.ellipse(bowlX, bowlY, bowlR, 26, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-
-        // Draw Slime Jelly Blob
-        ctx.save();
-        const grad = ctx.createRadialGradient(slimeState.apexX - 10, slimeState.apexY - 15, 6, bowlX, bowlY, bowlR);
-        const curGrad = generateSlimeGradient(this.makerColor);
-        if (this.makerTexture === 'gold') {
-          grad.addColorStop(0, '#fffbe0');
-          grad.addColorStop(0.3, '#ffd700');
-          grad.addColorStop(0.5, '#cca000');
-          grad.addColorStop(0.52, '#fff3a8');
-          grad.addColorStop(0.8, '#b8860b');
-          grad.addColorStop(1, '#5c4308');
-        } else if (this.makerTexture === 'crystal') {
-          grad.addColorStop(0, adjustColor(this.makerColor, 0.7));
-          grad.addColorStop(0.4, adjustColor(this.makerColor, 0.3));
-          grad.addColorStop(1, adjustColor(this.makerColor, -0.2));
-        } else {
-          grad.addColorStop(0, curGrad[0]);
-          grad.addColorStop(0.3, curGrad[1]);
-          grad.addColorStop(0.7, curGrad[2]);
-          grad.addColorStop(1, curGrad[3]);
-        }
-
-        ctx.fillStyle = grad;
-        ctx.strokeStyle = '#1a1a24';
-        ctx.lineWidth = 2.8;
-
-        const baseLeftX = bowlX - bowlR * 0.72;
-        const baseRightX = bowlX + bowlR * 0.72;
-        const baseY = bowlY + 4;
-
-        ctx.beginPath();
-        ctx.moveTo(baseLeftX, baseY);
-        ctx.quadraticCurveTo(slimeState.apexX - 35, (baseY + slimeState.apexY) / 2 + 5, slimeState.apexX, slimeState.apexY);
-        ctx.quadraticCurveTo(slimeState.apexX + 35, (baseY + slimeState.apexY) / 2 + 5, baseRightX, baseY);
-        ctx.quadraticCurveTo(bowlX, baseY + 18, baseLeftX, baseY);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-
-        // Texture Details in preview blob
-        if (this.makerTexture === 'cloud') {
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-          ctx.beginPath();
-          ctx.arc(slimeState.apexX - 18, slimeState.apexY + 8, 14, 0, Math.PI * 2);
-          ctx.arc(slimeState.apexX, slimeState.apexY, 15, 0, Math.PI * 2);
-          ctx.arc(slimeState.apexX + 18, slimeState.apexY + 8, 13, 0, Math.PI * 2);
-          ctx.fill();
-        } else if (this.makerTexture === 'floam') {
-          const beadColors = ['#ffffff', '#ff99c8', '#70e000', '#ffd166', '#00f5d4'];
-          const offsets = [
-            [-22, 10, 0], [-10, -5, 1], [0, 8, 2], [14, -2, 3], [22, 12, 4],
-            [-15, 20, 2], [10, 18, 0], [-2, 22, 1]
-          ];
-          offsets.forEach(([ox, oy, cIdx]) => {
-            const bx = slimeState.apexX + ox;
-            const by = slimeState.apexY + oy + 12;
-            ctx.fillStyle = beadColors[cIdx % beadColors.length];
-            ctx.beginPath();
-            ctx.arc(bx, by, 4.5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.beginPath();
-            ctx.arc(bx - 1.2, by - 1.2, 1.5, 0, Math.PI * 2);
-            ctx.fill();
-          });
-        } else if (this.makerTexture === 'butter') {
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-          ctx.lineWidth = 5;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(slimeState.apexX - 22, slimeState.apexY + 8);
-          ctx.quadraticCurveTo(slimeState.apexX, slimeState.apexY - 2, slimeState.apexX + 22, slimeState.apexY + 12);
-          ctx.stroke();
-        } else if (this.makerTexture === 'glitter') {
-          const stars = [[-16, 6], [0, -2], [15, 8], [-8, 20], [12, 22]];
-          stars.forEach(([ox, oy]) => {
-            const sx = slimeState.apexX + ox;
-            const sy = slimeState.apexY + oy + 6;
-            ctx.fillStyle = '#fff3a8';
-            ctx.beginPath();
-            ctx.moveTo(sx, sy - 4);
-            ctx.quadraticCurveTo(sx, sy, sx + 4, sy);
-            ctx.quadraticCurveTo(sx, sy, sx, sy + 4);
-            ctx.quadraticCurveTo(sx, sy, sx - 4, sy);
-            ctx.quadraticCurveTo(sx, sy, sx, sy - 4);
-            ctx.fill();
-          });
-        } else if (this.makerTexture === 'crystal') {
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-          ctx.lineWidth = 2.5;
-          ctx.beginPath();
-          ctx.moveTo(slimeState.apexX - 18, slimeState.apexY + 14);
-          ctx.lineTo(slimeState.apexX, slimeState.apexY + 2);
-          ctx.lineTo(slimeState.apexX + 18, slimeState.apexY + 14);
-          ctx.stroke();
-        }
-
-        // Stickiness Goo string when pulled high (Levels 4 & 5)
-        if (this.makerStickiness >= 4 && slimeState.isDragging && slimeState.apexY < bowlY - 45) {
-          ctx.strokeStyle = curGrad[2];
-          ctx.lineWidth = this.makerStickiness === 5 ? 4 : 2.5;
-          ctx.beginPath();
-          ctx.moveTo(bowlX - 12, bowlY - 10);
-          ctx.lineTo(slimeState.apexX - 8, slimeState.apexY + 12);
-          ctx.moveTo(bowlX + 12, bowlY - 10);
-          ctx.lineTo(slimeState.apexX + 8, slimeState.apexY + 12);
-          ctx.stroke();
-        }
-
-        // Specular shine on apex
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
-        ctx.lineWidth = 3.5;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.arc(slimeState.apexX - 6, slimeState.apexY + 12, 14, Math.PI * 1.1, Math.PI * 1.55);
-        ctx.stroke();
-
-        ctx.restore();
-
-        // Draw Ceramic Bowl Rim (Front layer)
-        ctx.save();
-        ctx.lineWidth = 6;
-        ctx.strokeStyle = '#2b4d75';
-        ctx.beginPath();
-        ctx.ellipse(bowlX, bowlY, bowlR, 24, 0, 0, Math.PI);
-        ctx.stroke();
-
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.beginPath();
-        ctx.ellipse(bowlX, bowlY, bowlR - 2, 22, 0, Math.PI * 0.2, Math.PI * 0.8);
-        ctx.stroke();
-        ctx.restore();
-
-        // Update and draw preview particles
-        for (let i = slimeState.particles.length - 1; i >= 0; i--) {
-          const p = slimeState.particles[i];
-          p.x += p.vx;
-          p.y += p.vy;
-          p.life -= 0.03;
-          if (p.life <= 0) {
-            slimeState.particles.splice(i, 1);
-          } else {
-            ctx.save();
-            ctx.globalAlpha = p.life;
-            ctx.fillStyle = p.color;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-          }
-        }
-
-        requestAnimationFrame(renderBowl);
-      };
-
-      requestAnimationFrame(renderBowl);
-    }
-
-    buildSkinsGrid() {
-      this.skinsGrid.innerHTML = '';
-
-      // If user has created/equipped custom slime, show Custom Slime Card first!
-      if (this.customSlimeData) {
-        const cItem = document.createElement('div');
-        const isCustomActive = this.p1.isCustom;
-        cItem.className = `skin-item ${isCustomActive ? 'equipped' : ''}`;
-
-        const preview = document.createElement('canvas');
-        preview.width = 80;
-        preview.height = 55;
-        preview.className = 'skin-preview-canvas';
-        const pCtx = preview.getContext('2d');
-
-        pCtx.save();
-        pCtx.translate(40, 48);
-        const grad = pCtx.createRadialGradient(-10, -20, 5, 0, 0, 36);
-        const cGrad = generateSlimeGradient(this.customSlimeData.color || '#38b000');
-        grad.addColorStop(0, cGrad[0]);
-        grad.addColorStop(0.3, cGrad[1]);
-        grad.addColorStop(0.7, cGrad[2]);
-        grad.addColorStop(1, cGrad[3]);
-        pCtx.fillStyle = grad;
-        pCtx.strokeStyle = '#1e1e24';
-        pCtx.lineWidth = 2.5;
-        pCtx.beginPath();
-        pCtx.arc(0, 0, 36, Math.PI, 0, false);
-        pCtx.closePath();
-        pCtx.fill();
-        pCtx.stroke();
-
-        // Eye
-        pCtx.fillStyle = '#fff';
-        pCtx.beginPath();
-        pCtx.arc(14, -18, 6.5, 0, Math.PI * 2);
-        pCtx.fill();
-        pCtx.stroke();
-        pCtx.fillStyle = '#111';
-        pCtx.beginPath();
-        pCtx.arc(16, -18, 3.5, 0, Math.PI * 2);
-        pCtx.fill();
-        pCtx.restore();
-
-        const nameEl = document.createElement('div');
-        nameEl.className = 'skin-name';
-        nameEl.textContent = '🧪 My Custom Slime';
-
-        const texName = (SLIME_TEXTURES[this.customSlimeData.texture] || {}).name || 'Classic';
-        const powerEl = document.createElement('div');
-        powerEl.className = 'skin-power-tag';
-        powerEl.textContent = `✨ ${texName} · Lvl ${this.customSlimeData.stickiness || 3}`;
-
-        const descEl = document.createElement('div');
-        descEl.className = 'skin-desc';
-        descEl.textContent = 'Crafted in Slime Lab with custom color & stickiness!';
-
-        cItem.appendChild(preview);
-        cItem.appendChild(nameEl);
-        cItem.appendChild(powerEl);
-        cItem.appendChild(descEl);
-
-        cItem.addEventListener('click', () => {
-          this.p1.applyCustomConfig(this.customSlimeData);
-          const texObj = SLIME_TEXTURES[this.customSlimeData.texture];
-          document.getElementById('p1Avatar').textContent = texObj ? texObj.icon : '🧪';
-          this.buildSkinsGrid();
-          if (window.slimeAudio) window.slimeAudio.playJump(1.2);
-        });
-
-        this.skinsGrid.appendChild(cItem);
-      }
-
-      Object.values(SLIMES).forEach(skin => {
-        const item = document.createElement('div');
-        item.className = `skin-item ${(!this.p1.isCustom && this.p1.skin.id === skin.id) ? 'equipped' : ''}`;
-
-        const preview = document.createElement('canvas');
-        preview.width = 80;
-        preview.height = 55;
-        preview.className = 'skin-preview-canvas';
-        const pCtx = preview.getContext('2d');
-
-        pCtx.save();
-        pCtx.translate(40, 48);
-        const grad = pCtx.createRadialGradient(-10, -20, 5, 0, 0, 36);
-        grad.addColorStop(0, skin.grad[0]);
-        grad.addColorStop(0.3, skin.grad[1]);
-        grad.addColorStop(0.7, skin.grad[2]);
-        grad.addColorStop(1, skin.grad[3]);
-        pCtx.fillStyle = grad;
-        pCtx.strokeStyle = '#1e1e24';
-        pCtx.lineWidth = 2.5;
-        pCtx.beginPath();
-        pCtx.arc(0, 0, 36, Math.PI, 0, false);
-        pCtx.closePath();
-        pCtx.fill();
-        pCtx.stroke();
-
-        pCtx.fillStyle = '#fff';
-        pCtx.beginPath();
-        pCtx.arc(14, -18, 6.5, 0, Math.PI * 2);
-        pCtx.fill();
-        pCtx.stroke();
-        pCtx.fillStyle = '#111';
-        pCtx.beginPath();
-        pCtx.arc(16, -18, 3.5, 0, Math.PI * 2);
-        pCtx.fill();
-        pCtx.restore();
-
-        const nameEl = document.createElement('div');
-        nameEl.className = 'skin-name';
-        nameEl.textContent = skin.name;
-
-        const powerEl = document.createElement('div');
-        powerEl.className = 'skin-power-tag';
-        powerEl.textContent = `⚡ ${skin.powerName}`;
-
-        const descEl = document.createElement('div');
-        descEl.className = 'skin-desc';
-        descEl.textContent = skin.powerDesc;
-
-        item.appendChild(preview);
-        item.appendChild(nameEl);
-        item.appendChild(powerEl);
-        item.appendChild(descEl);
-
-        item.addEventListener('click', () => {
-          this.p1.setSkin(skin.id);
-          document.getElementById('p1Avatar').textContent = skin.avatar;
-          this.buildSkinsGrid();
-          if (window.slimeAudio) window.slimeAudio.playJump(1.2);
-        });
-
-        this.skinsGrid.appendChild(item);
-      });
-    }
-
-    startMatch() {
-      this.p1Score = 0;
-      this.p2Score = 0;
-      this.rally = 0;
-      this.updateScoreboard();
-      this.overlay.classList.add('hidden');
-      this.serve('left');
-    }
-
-    restartMatch() {
-      this.startMatch();
-    }
-
-    serve(side = 'left') {
-      this.servingSide = side;
-      this.state = 'SERVING';
-      this.ball.reset(side);
-      this.p1.x = 200;
-      this.p1.y = FLOOR_Y;
-      this.p1.vx = 0;
-      this.p1.vy = 0;
-      this.p2.x = 760;
-      this.p2.y = FLOOR_Y;
-      this.p2.vx = 0;
-      this.p2.vy = 0;
-
-      if (window.slimeAudio) window.slimeAudio.playWhistle();
-
-      setTimeout(() => {
-        if (this.state === 'SERVING') {
-          this.state = 'PLAYING';
-        }
-      }, 700);
-    }
-
-    // Execute super power
-    activateSuperMove(player) {
-      if (player.superMeter < 100) return;
-      player.superMeter = 0;
-      player.triggerWobble(0.6);
-
-      if (window.slimeAudio) window.slimeAudio.playSuperMove();
-
-      // Visual particles explosion
-      for (let i = 0; i < 20; i++) {
-        this.particles.push(new Particle(player.x, player.y - 25, player.skin.glow, 6, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12));
-      }
-
-      // Check ball proximity: Spike the ball!
-      const dist = Math.hypot(this.ball.x - player.x, this.ball.y - player.y);
-      if (dist < 180) {
-        this.ball.isSuper = true;
-        this.ball.superColor = player.skin.glow;
-        const dir = player.side === 'left' ? 1 : -1;
-        this.ball.vx = dir * 21;
-        this.ball.vy = -7;
-        if (window.slimeAudio) window.slimeAudio.playSpike();
-      } else {
-        // High speed dash towards ball
-        player.isDashing = true;
-        player.dashTimer = 0.28;
-        player.vx = (player.side === 'left' ? 1 : -1) * 16;
-      }
-
-      this.updateSuperMeterUI();
-    }
-
-    updateSuperMeterUI() {
-      this.p1PowerFillEl.style.width = `${this.p1.superMeter}%`;
-      this.p1PowerFillEl.classList.toggle('ready', this.p1.superMeter >= 100);
-
-      this.p2PowerFillEl.style.width = `${this.p2.superMeter}%`;
-      this.p2PowerFillEl.classList.toggle('ready', this.p2.superMeter >= 100);
-    }
-
-    updateScoreboard() {
-      this.p1ScoreEl.textContent = this.p1Score;
-      this.p2ScoreEl.textContent = this.p2Score;
-      this.rallyCountEl.textContent = this.rally;
-      this.updateSuperMeterUI();
-    }
-
-    handlePointScored(scoringSide) {
-      this.state = 'SCORED';
-      this.rally = 0;
-
-      if (scoringSide === 'left') {
-        this.p1Score++;
-        this.addCoins(20);
-        if (window.slimeAudio) window.slimeAudio.playPointScored();
-      } else {
-        this.p2Score++;
-        if (window.slimeAudio) {
-          if (this.mode === 'soccer') window.slimeAudio.playGoalHorn();
-          else window.slimeAudio.playPointScored();
-        }
-      }
-
-      this.updateScoreboard();
-
-      // Burst Confetti on Score
-      for (let i = 0; i < 40; i++) {
-        this.confetti.push(new Confetti(this.ball.x, Math.min(this.ball.y, FLOOR_Y - 40)));
-      }
-
-      // Check Match Victory
-      if (this.p1Score >= WINNING_SCORE || this.p2Score >= WINNING_SCORE) {
-        setTimeout(() => this.endMatch(scoringSide), 1000);
-      } else {
-        setTimeout(() => {
-          this.serve(scoringSide === 'left' ? 'left' : 'right');
-        }, 1400);
+    openMaker() {
+      if (this.slimeMakerModal) {
+        this.slimeMakerModal.classList.remove('hidden');
+        if (this.labCoinsVal) this.labCoinsVal.textContent = this.coins;
       }
     }
 
-    endMatch(winnerSide) {
-      this.state = 'GAMEOVER';
-      const isP1Win = winnerSide === 'left';
-      this.overlayTitle.textContent = isP1Win ? '🎉 Match Victory!' : 'Defeat!';
-      this.overlayMascot.textContent = isP1Win ? '🏆' : '💀';
+    closeMaker() {
+      if (this.slimeMakerModal) this.slimeMakerModal.classList.add('hidden');
+      this.warpGameToScreen();
+    }
 
-      if (this.isTwoPlayer) {
-        this.overlayMsg.textContent = isP1Win ? 'Player 1 wins the championship match!' : 'Player 2 wins the championship match!';
-      } else {
-        this.overlayMsg.textContent = isP1Win ? 'You defeated the Robo-Slime in an epic jelly clash!' : 'Robo-Slime took the victory. Try again with a new strategy!';
-      }
-
-      if (isP1Win) {
-        this.addCoins(100);
-      }
-
-      this.actionBtn.textContent = 'Play Again';
-      this.overlay.classList.remove('hidden');
-
-      if (isP1Win && window.slimeAudio) {
-        window.slimeAudio.playVictory();
-      }
-
-      // Victory confetti shower
-      for (let i = 0; i < 90; i++) {
-        this.confetti.push(new Confetti(CANVAS_WIDTH / 2 + (Math.random() - 0.5) * 500, 100));
+    openShop() {
+      if (this.textureShopModal) {
+        this.textureShopModal.classList.remove('hidden');
+        if (this.shopCoinsVal) this.shopCoinsVal.textContent = this.coins;
+        this.initTextureShop();
       }
     }
 
-    // Smart AI Bot Controller
-    updateAI(dt) {
-      if (this.isTwoPlayer) {
-        // Player 2 Local Controls
-        let vx = 0;
-        if (this.keys.arrowLeft) vx -= this.p2.speed;
-        if (this.keys.arrowRight) vx += this.p2.speed;
-        this.p2.vx = vx;
-        if (this.keys.arrowUp) this.p2.jump();
-        if (this.keys.enter) this.activateSuperMove(this.p2);
-        return;
-      }
-
-      // AI Bot Logic based on difficulty
-      const bot = this.p2;
-      const b = this.ball;
-      const targetSpeed = this.difficulty === 'hard' ? 8.2 : (this.difficulty === 'medium' ? 6.8 : 5.0);
-      const jumpAccuracy = this.difficulty === 'hard' ? 45 : (this.difficulty === 'medium' ? 65 : 85);
-
-      // Desired position: under the predicted ball landing spot
-      let desiredX = 720;
-      if (b.x > this.netX - 50) {
-        // Ball is in or heading towards bot court
-        desiredX = b.x;
-        if (b.vx > 0) {
-          // Lead ahead of ball
-          desiredX += b.vx * 12;
-        }
-      }
-
-      // Stay on right side of net
-      desiredX = Math.max(this.netX + bot.radius + 15, Math.min(CANVAS_WIDTH - bot.radius - 20, desiredX));
-
-      // Move towards desiredX
-      if (bot.x < desiredX - 12) {
-        bot.vx = targetSpeed;
-      } else if (bot.x > desiredX + 12) {
-        bot.vx = -targetSpeed;
-      } else {
-        bot.vx = 0;
-      }
-
-      // Jump to Spike / Defend
-      if (b.x > this.netX && Math.abs(b.x - bot.x) < jumpAccuracy && b.y < FLOOR_Y - 90 && b.y > 180) {
-        if (Math.random() < (this.difficulty === 'hard' ? 0.85 : 0.6)) {
-          bot.jump();
-        }
-      }
-
-      // AI Super Power Trigger
-      if (bot.superMeter >= 100 && b.x > this.netX && Math.abs(b.x - bot.x) < 120 && b.y < 350) {
-        this.activateSuperMove(bot);
-      }
+    closeShop() {
+      if (this.textureShopModal) this.textureShopModal.classList.add('hidden');
+      this.warpGameToScreen();
     }
 
-    // Slime vs Ball Physics Collision
-    checkSlimeBallCollision(slime) {
-      const b = this.ball;
-      const dx = b.x - slime.x;
-      const dy = b.y - slime.y;
-      const dist = Math.hypot(dx, dy);
-      const minDist = slime.radius + b.radius;
+    // --- Main Rendering & Animation Loop ---
+    loop(timestamp) {
+      const dt = Math.min(0.04, (timestamp - this.lastTime) / 1000);
+      this.lastTime = timestamp;
 
-      // Slime is a semi-circle dome (only hits if ball is above or at slime center)
-      if (dist < minDist && b.y <= slime.y + 12) {
-        // Normal vector
-        const nx = dx / (dist || 1);
-        const ny = dy / (dist || 1);
+      // 1. Update Soft-body Physics Simulation
+      this.slime.updatePhysics(dt);
 
-        // Position correction (prevent ball sinking into jelly body)
-        b.x = slime.x + nx * minDist;
-        b.y = slime.y + ny * minDist;
+      // 2. Render Slime Studio Workbench Canvas
+      this.render();
 
-        // Relative velocity
-        const rvx = b.vx - slime.vx;
-        const rvy = b.vy - slime.vy;
-        const normalVel = rvx * nx + rvy * ny;
-
-        if (normalVel < 0) {
-          // Restitution based on stickiness and texture
-          let restitution = 1.08;
-          if (slime.isCustom) {
-            const trait = STICKINESS_TRAITS[slime.stickiness];
-            if (trait) restitution = trait.restitution;
-            if (slime.texture === 'crystal') restitution += 0.04;
-            if (slime.texture === 'butter') restitution -= 0.04;
-          }
-
-          b.vx = b.vx - (1 + restitution) * normalVel * nx + slime.vx * 0.35;
-          b.vy = b.vy - (1 + restitution) * normalVel * ny + slime.vy * 0.35;
-
-          // High stickiness (Levels 4 & 5) gives strong directional traction from slime movement
-          if (slime.isCustom && slime.stickiness >= 4) {
-            b.vx += slime.vx * (slime.stickiness === 5 ? 0.38 : 0.22);
-          }
-
-          // Extra upward boost if hitting top dome
-          if (ny < -0.4) {
-            b.vy = Math.min(-7, b.vy - 3);
-          }
-
-          // Trigger soft-body squish wobble
-          slime.triggerWobble(0.35);
-
-          // Particles splash based on skin & texture
-          const splashColor = slime.isCustom ? (slime.customGrad ? slime.customGrad[1] : slime.customColor) : slime.skin.color;
-          for (let p = 0; p < 8; p++) {
-            this.particles.push(new Particle(b.x, b.y, splashColor, 4, nx * 4 + (Math.random() - 0.5) * 5, ny * 4 + (Math.random() - 0.5) * 5));
-          }
-
-          // Special texture impact particles & sounds
-          if (slime.isCustom) {
-            if (slime.texture === 'cloud') {
-              for (let p = 0; p < 6; p++) {
-                this.particles.push(new Particle(b.x, b.y, 'rgba(255, 255, 255, 0.88)', 6 + Math.random() * 4, (Math.random() - 0.5) * 4, -1 - Math.random() * 3, 0.8, false));
-              }
-              if (window.slimeAudio) window.slimeAudio.playCloudPuff();
-            } else if (slime.texture === 'floam') {
-              const beads = ['#ff99c8', '#70e000', '#ffd166', '#00f5d4'];
-              for (let p = 0; p < 7; p++) {
-                this.particles.push(new Particle(b.x, b.y, beads[p % beads.length], 4.5, (Math.random() - 0.5) * 8, -2 - Math.random() * 5, 0.9, true));
-              }
-              if (window.slimeAudio) window.slimeAudio.playFoamCrunch();
-            } else if (slime.texture === 'glitter') {
-              for (let p = 0; p < 8; p++) {
-                this.particles.push(new Particle(b.x, b.y, '#fff3a8', 3.5, (Math.random() - 0.5) * 7, (Math.random() - 0.5) * 7, 0.7, false));
-              }
-            } else if (slime.stickiness >= 4) {
-              for (let p = 0; p < 6; p++) {
-                this.particles.push(new Particle(b.x, b.y, splashColor, 3.5, (Math.random() - 0.5) * 3, 1 + Math.random() * 4, 1.2, true));
-              }
-            }
-
-            if (window.slimeAudio) {
-              window.slimeAudio.playASMRSquish(slime.stickiness);
-            }
-          } else {
-            if (window.slimeAudio) {
-              window.slimeAudio.playSquish(Math.hypot(b.vx, b.vy));
-            }
-          }
-
-          // Increment rally & super meter
-          this.rally++;
-          this.updateScoreboard();
-          slime.superMeter = Math.min(100, slime.superMeter + 25);
-          this.updateSuperMeterUI();
-
-          // Reward coins for rally hit!
-          this.addCoins(2);
-        }
-      }
+      requestAnimationFrame((t) => this.loop(t));
     }
 
-    // Physics Engine Update
-    updatePhysics(dt) {
-      if (this.state !== 'PLAYING') return;
-
-      // 1. Player 1 Movement
-      let p1vx = 0;
-      if (this.keys.a) p1vx -= this.p1.speed;
-      if (this.keys.d) p1vx += this.p1.speed;
-      this.p1.vx = p1vx;
-      if (this.keys.w) this.p1.jump();
-      if (this.keys.space) this.activateSuperMove(this.p1);
-
-      // 2. Player 2 / AI Bot Movement
-      this.updateAI(dt);
-
-      // 3. Update Slimes
-      this.p1.update(dt, this.ball, this.netX, CANVAS_WIDTH);
-      this.p2.update(dt, this.ball, this.netX, CANVAS_WIDTH);
-
-      // 4. Update Ball
-      this.ball.update(dt);
-
-      // 5. Slime vs Ball Collisions
-      this.checkSlimeBallCollision(this.p1);
-      this.checkSlimeBallCollision(this.p2);
-
-      // 6. Net Collision (Volleyball Mode)
-      if (this.mode === 'volleyball') {
-        const netTop = FLOOR_Y - this.netHeight;
-        const netL = this.netX - this.netWidth / 2;
-        const netR = this.netX + this.netWidth / 2;
-
-        // Collision with top rounded cap of net
-        const capDist = Math.hypot(this.ball.x - this.netX, this.ball.y - netTop);
-        if (capDist < this.ball.radius + this.netWidth / 2) {
-          const cnx = (this.ball.x - this.netX) / capDist;
-          const cny = (this.ball.y - netTop) / capDist;
-          this.ball.vx = cnx * Math.max(5, Math.abs(this.ball.vx));
-          this.ball.vy = cny * Math.max(6, Math.abs(this.ball.vy));
-          if (window.slimeAudio) window.slimeAudio.playBounce('net');
-        } else if (this.ball.y > netTop && this.ball.y < FLOOR_Y) {
-          // Collision with net vertical post
-          if (this.ball.x + this.ball.radius >= netL && this.ball.x - this.ball.radius <= netR) {
-            if (this.ball.vx > 0) {
-              this.ball.x = netL - this.ball.radius;
-              this.ball.vx = -this.ball.vx * 0.85;
-            } else {
-              this.ball.x = netR + this.ball.radius;
-              this.ball.vx = -this.ball.vx * 0.85;
-            }
-            if (window.slimeAudio) window.slimeAudio.playBounce('net');
-          }
-        }
-      }
-
-      // 7. Wall Collisions
-      if (this.ball.x - this.ball.radius <= 0) {
-        this.ball.x = this.ball.radius;
-        this.ball.vx = -this.ball.vx * 0.82;
-        if (window.slimeAudio) window.slimeAudio.playBounce('wall');
-      } else if (this.ball.x + this.ball.radius >= CANVAS_WIDTH) {
-        this.ball.x = CANVAS_WIDTH - this.ball.radius;
-        this.ball.vx = -this.ball.vx * 0.82;
-        if (window.slimeAudio) window.slimeAudio.playBounce('wall');
-      }
-
-      // Ceiling Collision
-      if (this.ball.y - this.ball.radius <= 0) {
-        this.ball.y = this.ball.radius;
-        this.ball.vy = Math.abs(this.ball.vy) * 0.8;
-      }
-
-      // 8. Floor Collision & Scoring
-      if (this.ball.y + this.ball.radius >= FLOOR_Y) {
-        this.ball.y = FLOOR_Y - this.ball.radius;
-
-        if (this.mode === 'volleyball') {
-          // In volleyball, ball hitting the floor scores a point!
-          if (this.ball.x < this.netX) {
-            this.handlePointScored('right'); // Landed on P1 side -> P2 scores
-          } else {
-            this.handlePointScored('left');  // Landed on P2 side -> P1 scores
-          }
-        } else {
-          // In soccer, ball bounces on floor
-          this.ball.vy = -this.ball.vy * 0.78;
-          if (Math.abs(this.ball.vy) < 2) this.ball.vy = 0;
-          if (window.slimeAudio) window.slimeAudio.playBounce('floor', Math.abs(this.ball.vy));
-        }
-      }
-
-      // 9. Soccer Goal Scoring Detection
-      if (this.mode === 'soccer') {
-        const goalH = 140; // Goal height from floor
-        if (this.ball.y >= FLOOR_Y - goalH) {
-          // Left Goal (P2 scores)
-          if (this.ball.x - this.ball.radius <= 40) {
-            this.handlePointScored('right');
-          }
-          // Right Goal (P1 scores)
-          else if (this.ball.x + this.ball.radius >= CANVAS_WIDTH - 40) {
-            this.handlePointScored('left');
-          }
-        }
-      }
-    }
-
-    // Main Draw Method
     render() {
       const ctx = this.ctx;
       ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-      // Background Sky & Court
-      this.drawCourt(ctx);
+      // A. Studio Mat Background
+      this.drawStudioTable(ctx);
 
-      // Draw Slimes
-      this.p1.draw(ctx);
-      this.p2.draw(ctx);
+      // B. Draw Interactive Slime Blob
+      this.slime.draw(ctx);
 
-      // Draw Net / Goals
-      if (this.mode === 'volleyball') {
-        this.drawNet(ctx);
-      } else {
-        this.drawGoals(ctx);
+      // C. Draw Interactive Slime Bubbles
+      for (let i = this.bubbles.length - 1; i >= 0; i--) {
+        const b = this.bubbles[i];
+        b.update(0.016);
+        b.draw(ctx);
+        if (b.life <= 0) this.bubbles.splice(i, 1);
       }
 
-      // Draw Ball
-      this.ball.draw(ctx);
-
-      // Draw Particles
+      // D. Draw Particles (Squish, unstick, glitter)
       for (let i = this.particles.length - 1; i >= 0; i--) {
         const p = this.particles[i];
         p.update(0.016);
@@ -2367,138 +1833,62 @@
         if (p.life <= 0) this.particles.splice(i, 1);
       }
 
-      // Draw Confetti
-      for (let i = this.confetti.length - 1; i >= 0; i--) {
-        const c = this.confetti[i];
+      // E. Draw Floating Coin Popups
+      for (let i = this.floatingCoins.length - 1; i >= 0; i--) {
+        const c = this.floatingCoins[i];
         c.update(0.016);
         c.draw(ctx);
-        if (c.life <= 0) this.confetti.splice(i, 1);
+        if (c.life <= 0) this.floatingCoins.splice(i, 1);
       }
     }
 
-    drawCourt(ctx) {
-      // Sky Gradient
-      const skyGrad = ctx.createLinearGradient(0, 0, 0, FLOOR_Y);
-      skyGrad.addColorStop(0, '#0a2540');
-      skyGrad.addColorStop(0.6, '#1e3d59');
-      skyGrad.addColorStop(1, '#17b978');
-      ctx.fillStyle = skyGrad;
-      ctx.fillRect(0, 0, CANVAS_WIDTH, FLOOR_Y);
+    drawStudioTable(ctx) {
+      // Tabletop gradient (clean modern marble / pastel studio look)
+      const bgGrad = ctx.createRadialGradient(
+        CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 80,
+        CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 480
+      );
+      bgGrad.addColorStop(0, '#1c314a');
+      bgGrad.addColorStop(0.6, '#0f2038');
+      bgGrad.addColorStop(1, '#081424');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-      // Stadium Spectators / Hills Silhouette
-      ctx.fillStyle = 'rgba(10, 25, 47, 0.45)';
+      // Concentric circular play mat rings beneath slime
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.lineWidth = 2;
+
       ctx.beginPath();
-      ctx.arc(200, FLOOR_Y + 50, 220, Math.PI, 0);
-      ctx.arc(500, FLOOR_Y + 70, 260, Math.PI, 0);
-      ctx.arc(800, FLOOR_Y + 40, 200, Math.PI, 0);
-      ctx.fill();
-
-      // Court Floor (Grass/Sand)
-      const floorGrad = ctx.createLinearGradient(0, FLOOR_Y, 0, CANVAS_HEIGHT);
-      if (this.mode === 'volleyball') {
-        // Sandy beach court
-        floorGrad.addColorStop(0, '#f4a261');
-        floorGrad.addColorStop(0.2, '#e76f51');
-        floorGrad.addColorStop(1, '#8d4925');
-      } else {
-        // Lush soccer pitch
-        floorGrad.addColorStop(0, '#38b000');
-        floorGrad.addColorStop(0.2, '#007200');
-        floorGrad.addColorStop(1, '#004b23');
-      }
-      ctx.fillStyle = floorGrad;
-      ctx.fillRect(0, FLOOR_Y, CANVAS_WIDTH, CANVAS_HEIGHT - FLOOR_Y);
-
-      // Court Line
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(0, FLOOR_Y);
-      ctx.lineTo(CANVAS_WIDTH, FLOOR_Y);
-      ctx.stroke();
-    }
-
-    drawNet(ctx) {
-      const netTop = FLOOR_Y - this.netHeight;
-      const netX = this.netX;
-
-      // Net Post
-      ctx.fillStyle = '#6c757d';
-      ctx.fillRect(netX - this.netWidth / 2, netTop, this.netWidth, this.netHeight);
-
-      // Top White Band
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(netX - this.netWidth / 2 - 2, netTop - 2, this.netWidth + 4, 10);
-
-      // Net Mesh Grid
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      for (let y = netTop + 8; y < FLOOR_Y; y += 12) {
-        ctx.moveTo(netX - this.netWidth / 2, y);
-        ctx.lineTo(netX + this.netWidth / 2, y);
-      }
-      for (let x = netX - this.netWidth / 2; x <= netX + this.netWidth / 2; x += 4) {
-        ctx.moveTo(x, netTop);
-        ctx.lineTo(x, FLOOR_Y);
-      }
+      ctx.arc(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 185, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Rounded Top Cap
-      ctx.fillStyle = '#ffbe0b';
       ctx.beginPath();
-      ctx.arc(netX, netTop, this.netWidth / 2 + 1, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    drawGoals(ctx) {
-      const goalH = 140;
-      const goalW = 40;
-
-      // Left Goal Post
-      ctx.lineWidth = 6;
-      ctx.strokeStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.moveTo(0, FLOOR_Y - goalH);
-      ctx.lineTo(goalW, FLOOR_Y - goalH);
-      ctx.lineTo(goalW, FLOOR_Y);
+      ctx.arc(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 230, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Right Goal Post
-      ctx.beginPath();
-      ctx.moveTo(CANVAS_WIDTH, FLOOR_Y - goalH);
-      ctx.lineTo(CANVAS_WIDTH - goalW, FLOOR_Y - goalH);
-      ctx.lineTo(CANVAS_WIDTH - goalW, FLOOR_Y);
-      ctx.stroke();
-
-      // Net Meshes
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-      ctx.lineWidth = 1.5;
-      for (let y = FLOOR_Y - goalH; y < FLOOR_Y; y += 16) {
+      // Subtle table grid texture lines
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+      ctx.lineWidth = 1;
+      for (let x = 60; x < CANVAS_WIDTH; x += 60) {
         ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(goalW, y);
-        ctx.moveTo(CANVAS_WIDTH, y);
-        ctx.lineTo(CANVAS_WIDTH - goalW, y);
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, CANVAS_HEIGHT);
         ctx.stroke();
       }
-    }
+      for (let y = 60; y < CANVAS_HEIGHT; y += 60) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(CANVAS_WIDTH, y);
+        ctx.stroke();
+      }
 
-    // Main Animation Loop
-    loop(timestamp) {
-      const dt = Math.min(0.04, (timestamp - this.lastTime) / 1000);
-      this.lastTime = timestamp;
-      this.time += dt;
-
-      this.updatePhysics(dt);
-      this.render();
-
-      requestAnimationFrame((t) => this.loop(t));
+      ctx.restore();
     }
   }
 
   // Launch on DOM Ready
   window.addEventListener('DOMContentLoaded', () => {
-    window.slimeGame = new Game();
+    window.slimeStudio = new SlimeStudio();
   });
 })();

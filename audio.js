@@ -401,6 +401,55 @@ class SlimeAudio {
     osc.stop(now + 0.2);
     this.playNoise(0.08, 0.15, 600);
   }
+
+  // Sticky suction release pop (when hover un-sticks or stretch snaps back)
+  playStickRelease(stickiness = 3) {
+    if (this.muted || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    const startFreq = 80 + (5 - stickiness) * 25;
+    const peakFreq = 260 + (5 - stickiness) * 60;
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(startFreq, now);
+    osc.frequency.exponentialRampToValueAtTime(peakFreq, now + 0.04);
+    osc.frequency.exponentialRampToValueAtTime(110, now + 0.11);
+
+    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.13);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.14);
+
+    // Wet suction click
+    this.playNoise(0.04, 0.22, 1100 - stickiness * 90);
+  }
+
+  // Taffy stretching sound
+  playStretch(amount = 1.0) {
+    if (this.muted || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    const f = 150 + Math.min(300, amount * 120);
+    osc.frequency.setValueAtTime(f, now);
+    osc.frequency.linearRampToValueAtTime(f + 60, now + 0.08);
+
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.005, now + 0.09);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.1);
+  }
 }
 
 window.slimeAudio = new SlimeAudio();
