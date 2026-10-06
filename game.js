@@ -15,7 +15,7 @@
   // --- Studio Constants ---
   const CANVAS_WIDTH = 960;
   const CANVAS_HEIGHT = 540;
-  const NUM_VERTICES = 32;
+  const NUM_VERTICES = 36;
 
   // Stickiness Durations for Hover Adhesion (in seconds)
   const STICKINESS_HOLD_TIMES = {
@@ -265,24 +265,37 @@
       this.stickiness = 3;     // 1 to 5
       this.charm = 'none';
 
-      // 32 Boundary Elastic Vertices
+      // 36 Boundary 2D Viscoelastic Soft-Body Vertices
       this.vertices = [];
       for (let i = 0; i < NUM_VERTICES; i++) {
         const angle = (i * Math.PI * 2) / NUM_VERTICES;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
         this.vertices.push({
+          index: i,
           angle: angle,
-          r0: radius,
-          r: radius,
-          v: 0,
-          targetR: radius
+          restAngle: angle,
+          x: x,
+          y: y,
+          vx: 0,
+          vy: 0,
+          restX: x,
+          restY: y,
+          pinned: false
         });
       }
 
-      // Drag & Stretch State
+      // 2D Viscous Drag & Tendril State
       this.isDragging = false;
       this.dragIndex = -1;
       this.dragX = cx;
       this.dragY = cy;
+      this.dragPrevX = cx;
+      this.dragPrevY = cy;
+      this.dragSmoothX = cx;
+      this.dragSmoothY = cy;
+      this.tendrilCurvature = 0;
+      this.stretchDistance = 0;
 
       // Hover Stickiness State
       this.isHoverStuck = false;
@@ -379,35 +392,45 @@
       }
     }
 
-    // Check if point (x, y) is inside the slime boundary
+    // Check if point (x, y) is inside or directly touching the slime boundary
     containsPoint(x, y) {
-      const dx = x - this.cx;
-      const dy = y - this.cy;
-      const dist = Math.hypot(dx, dy);
-      if (dist === 0) return true;
+      // 1. Quick distance check for core resting body
+      const dist = Math.hypot(x - this.cx, y - this.cy);
+      if (dist <= this.baseRadius * 0.85) return true;
 
-      // Find vertex angle closest to point
-      let angle = Math.atan2(dy, dx);
-      if (angle < 0) angle += Math.PI * 2;
+      // 2. Exact 2D Point-in-polygon ray casting check for arbitrary deformed body
+      let inside = false;
+      const n = this.vertices.length;
+      for (let i = 0, j = n - 1; i < n; j = i++) {
+        const xi = this.vertices[i].x;
+        const yi = this.vertices[i].y;
+        const xj = this.vertices[j].x;
+        const yj = this.vertices[j].y;
+        const intersect = ((yi > y) !== (yj > y)) &&
+          (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      if (inside) return true;
 
-      const idx = Math.floor((angle / (Math.PI * 2)) * NUM_VERTICES) % NUM_VERTICES;
-      return dist <= this.vertices[idx].r * 1.05;
+      // 3. Proximity padding around boundary vertices (generous grab hit area)
+      for (let i = 0; i < n; i++) {
+        const dx = this.vertices[i].x - x;
+        const dy = this.vertices[i].y - y;
+        if (dx * dx + dy * dy <= 24 * 24) return true;
+      }
+      return false;
     }
 
-    // Find nearest vertex index to given point
+    // Find nearest vertex index to given (x, y) point in 2D space
     getNearestVertexIndex(x, y) {
-      const dx = x - this.cx;
-      const dy = y - this.cy;
-      let angle = Math.atan2(dy, dx);
-      if (angle < 0) angle += Math.PI * 2;
-
       let closestIdx = 0;
-      let minDiff = 999;
-      for (let i = 0; i < NUM_VERTICES; i++) {
-        let diff = Math.abs(this.vertices[i].angle - angle);
-        if (diff > Math.PI) diff = Math.PI * 2 - diff;
-        if (diff < minDiff) {
-          minDiff = diff;
+      let minDistSq = Infinity;
+      for (let i = 0; i < this.vertices.length; i++) {
+        const dx = this.vertices[i].x - x;
+        const dy = this.vertices[i].y - y;
+        const distSq = dx * dx + dy * dy;
+        if (distSq < minDistSq) {
+          minDistSq = distSq;
           closestIdx = i;
         }
       }
@@ -418,73 +441,98 @@
     squish(x, y, force = 65) {
       const targetIdx = this.getNearestVertexIndex(x, y);
 
+      // Direction from center to squish point
+      const dx = x - this.cx;
+      const dy = y - this.cy;
+      const dist = Math.hypot(dx, dy) || 1;
+      const ux = dx / dist;
+      const uy = dy / dist;
+
       // Inward indentation impulse at clicked vertex
-      this.vertices[targetIdx].v -= force * 4.2;
+      const tv = this.vertices[targetIdx];
+      tv.vx -= ux * force * 3.8;
+      tv.vy -= uy * force * 3.8;
 
-      // Neighbor vertices ripple with conservation of volume (bulge outwards!)
-      for (let i = 1; i <= 6; i++) {
-        const falloff = (7 - i) / 7;
-        const leftIdx = (targetIdx - i + NUM_VERTICES) % NUM_VERTICES;
-        const rightIdx = (targetIdx + i) % NUM_VERTICES;
+      // Ripples and lateral volume conservation bulges around the perimeter
+      const n = this.vertices.length;
+      for (let i = 1; i <= 7; i++) {
+        const falloff = (8 - i) / 8;
+        const leftIdx = (targetIdx - i + n) % n;
+        const rightIdx = (targetIdx + i) % n;
 
-        // Inward dent nearby
         if (i <= 2) {
-          this.vertices[leftIdx].v -= force * 2.5 * falloff;
-          this.vertices[rightIdx].v -= force * 2.5 * falloff;
+          // Inward dent for immediate neighbors
+          this.vertices[leftIdx].vx -= ux * force * 2.2 * falloff;
+          this.vertices[leftIdx].vy -= uy * force * 2.2 * falloff;
+          this.vertices[rightIdx].vx -= ux * force * 2.2 * falloff;
+          this.vertices[rightIdx].vy -= uy * force * 2.2 * falloff;
         } else {
-          // Bulge outward further away for jelly volume conservation
-          this.vertices[leftIdx].v += force * 1.8 * falloff;
-          this.vertices[rightIdx].v += force * 1.8 * falloff;
+          // Bulge outward further along the body for jelly incompressibility
+          this.vertices[leftIdx].vx += ux * force * 1.5 * falloff;
+          this.vertices[leftIdx].vy += uy * force * 1.5 * falloff;
+          this.vertices[rightIdx].vx += ux * force * 1.5 * falloff;
+          this.vertices[rightIdx].vy += uy * force * 1.5 * falloff;
         }
       }
 
       this.globalWobble = 0.55;
     }
 
-    // ➰ 2. CLICK & DRAG TO STRETCH: Pull outward from where you dragged
+    // ➰ 2. CLICK & DRAG TO STRETCH: 2D Viscous Putty Tendril that tracks mouse anywhere!
     startDrag(x, y) {
       this.isDragging = true;
       this.dragIndex = this.getNearestVertexIndex(x, y);
       this.dragX = x;
       this.dragY = y;
+      this.dragSmoothX = x;
+      this.dragSmoothY = y;
+      this.dragPrevX = x;
+      this.dragPrevY = y;
+      this.tendrilCurvature = 0;
+      this.stretchDistance = 0;
     }
 
     updateDrag(x, y) {
       if (!this.isDragging || this.dragIndex === -1) return;
+      this.dragPrevX = this.dragX;
+      this.dragPrevY = this.dragY;
       this.dragX = x;
       this.dragY = y;
-
-      const dist = Math.hypot(x - this.cx, y - this.cy);
-      const v = this.vertices[this.dragIndex];
-
-      // Stretch target vertex directly towards mouse position
-      v.r = Math.max(v.r0 * 0.4, dist);
-
-      // Smoothly stretch adjacent vertices like pliable putty
-      const stretchRange = 7;
-      for (let i = 1; i <= stretchRange; i++) {
-        const falloff = Math.cos((i / (stretchRange + 1)) * (Math.PI / 2));
-        const leftIdx = (this.dragIndex - i + NUM_VERTICES) % NUM_VERTICES;
-        const rightIdx = (this.dragIndex + i) % NUM_VERTICES;
-
-        const neighborTarget = v.r0 + (v.r - v.r0) * falloff * 0.82;
-        this.vertices[leftIdx].r += (neighborTarget - this.vertices[leftIdx].r) * 0.25;
-        this.vertices[rightIdx].r += (neighborTarget - this.vertices[rightIdx].r) * 0.25;
-      }
     }
 
     endDrag() {
       if (!this.isDragging) return;
       this.isDragging = false;
       if (this.dragIndex !== -1) {
-        // High elastic rebound impulse when let go!
-        const v = this.vertices[this.dragIndex];
-        const stretchAmount = v.r - v.r0;
-        // Snap back velocity proportional to stretch
-        v.v -= stretchAmount * 4.5;
-        this.globalWobble = 0.7;
+        const n = this.vertices.length;
+        // Elastic rebound snap-back on all stretched tendril vertices!
+        // Snap multiplier: slick putty snaps back very fast, gooey taffy has viscous retraction
+        const snapMultiplier = 4.2 - (this.stickiness - 1) * 0.45;
+        const K = 7;
+        for (let d = 0; d <= K; d++) {
+          const leftIdx = (this.dragIndex - d + n) % n;
+          const rightIdx = (this.dragIndex + d) % n;
+          const leftV = this.vertices[leftIdx];
+          const rightV = this.vertices[rightIdx];
+
+          const dispLX = leftV.x - leftV.restX;
+          const dispLY = leftV.y - leftV.restY;
+          leftV.vx -= dispLX * snapMultiplier;
+          leftV.vy -= dispLY * snapMultiplier;
+          leftV.pinned = false;
+
+          if (d > 0) {
+            const dispRX = rightV.x - rightV.restX;
+            const dispRY = rightV.y - rightV.restY;
+            rightV.vx -= dispRX * snapMultiplier;
+            rightV.vy -= dispRY * snapMultiplier;
+            rightV.pinned = false;
+          }
+        }
+        this.globalWobble = 0.75;
       }
       this.dragIndex = -1;
+      this.stretchDistance = 0;
     }
 
     // 🍯 3. HOVER STICKINESS: Adheres to cursor, holds for duration, then lets go!
@@ -517,17 +565,24 @@
         this.hoverStickX = mouseX;
         this.hoverStickY = mouseY;
 
-        // Pull the stuck surface slightly towards the cursor to create gooey suction peak
+        // Pull the stuck surface slightly towards the cursor in 2D to create gooey suction peak
         if (this.hoverVertexIdx !== -1) {
-          const v = this.vertices[this.hoverVertexIdx];
-          const distToCursor = Math.hypot(mouseX - this.cx, mouseY - this.cy);
-          // Gently lift towards cursor
-          v.r += (distToCursor - v.r) * 0.18;
+          const n = this.vertices.length;
+          const hv = this.vertices[this.hoverVertexIdx];
+          hv.x += (mouseX - hv.x) * 0.16;
+          hv.y += (mouseY - hv.y) * 0.16;
+
+          const leftV = this.vertices[(this.hoverVertexIdx - 1 + n) % n];
+          const rightV = this.vertices[(this.hoverVertexIdx + 1) % n];
+          leftV.x += (mouseX - leftV.x) * 0.08;
+          leftV.y += (mouseY - leftV.y) * 0.08;
+          rightV.x += (mouseX - rightV.x) * 0.08;
+          rightV.y += (mouseY - rightV.y) * 0.08;
         }
 
-        // Check if stick timer expired OR mouse pulled too far away (> 160px from center)
+        // Check if stick timer expired OR mouse pulled too far away
         const currentDist = Math.hypot(mouseX - this.cx, mouseY - this.cy);
-        const maxTearDist = this.baseRadius * (1.3 + this.stickiness * 0.15);
+        const maxTearDist = this.baseRadius * (1.35 + this.stickiness * 0.15);
 
         if (this.hoverStickTimer <= 0 || currentDist > maxTearDist) {
           // 🔔 UNSTICK / LET GO!
@@ -535,8 +590,9 @@
           this.hoverCooldown = 0.45; // brief break before re-sticking
 
           if (this.hoverVertexIdx !== -1) {
-            // Surface snaps back smoothly
-            this.vertices[this.hoverVertexIdx].v -= 35;
+            const hv = this.vertices[this.hoverVertexIdx];
+            hv.vx -= (mouseX - hv.x) * 0.8;
+            hv.vy -= (mouseY - hv.y) * 0.8;
           }
 
           // Satisfying suction release pop audio!
@@ -551,101 +607,268 @@
       return null;
     }
 
-    // Soft-body Spring Physics Simulation Step
+    // Soft-body Viscoelastic Spring Simulation Step
     updatePhysics(dt) {
-      this.idlePhase += dt * 3.5;
+      const n = this.vertices.length;
+      this.idlePhase += dt * 3.2;
 
-      // Spring constants modulate with stickiness:
-      // Higher stickiness = slower, more viscous putty damping
-      const kSpring = 160;
-      const kNeighbor = 80;
-      const cDamp = 6.5 + (this.stickiness - 1) * 1.5;
+      // Base idle breathing oscillation
+      const idleWobble = Math.sin(this.idlePhase) * 2.2;
+      const currentRadius = this.baseRadius + idleWobble;
 
-      // Update all 32 vertices
-      for (let i = 0; i < NUM_VERTICES; i++) {
+      // 1. Viscous drag tracking & tendril geometry update
+      if (this.isDragging && this.dragIndex !== -1) {
+        // Viscous lag: smooth tracking that follows the mouse with fluid inertia
+        const viscousFollow = 0.42;
+        this.dragSmoothX += (this.dragX - this.dragSmoothX) * viscousFollow;
+        this.dragSmoothY += (this.dragY - this.dragSmoothY) * viscousFollow;
+
+        // Transverse curvature / catenary lag
+        const mdx = this.dragX - this.dragPrevX;
+        const mdy = this.dragY - this.dragPrevY;
+        const toCursorX = this.dragSmoothX - this.cx;
+        const toCursorY = this.dragSmoothY - this.cy;
+        const cursorDist = Math.hypot(toCursorX, toCursorY) || 1;
+        const normCursorX = -toCursorY / cursorDist;
+        const normCursorY = toCursorX / cursorDist;
+        const lateralSpeed = mdx * normCursorX + mdy * normCursorY;
+        this.tendrilCurvature += (lateralSpeed * 1.8 - this.tendrilCurvature) * 0.18;
+        this.tendrilCurvature *= 0.94; // continuous damping
+
+        const g = this.dragIndex;
+        const K = 7; // 7 neighbors on each side = 15 tendril vertices
+
+        // Left & right base anchors where the tendril roots into the main slime body
+        const anchorLIdx = (g - K - 1 + n) % n;
+        const anchorRIdx = (g + K + 1) % n;
+        const anchorL = this.vertices[anchorLIdx];
+        const anchorR = this.vertices[anchorRIdx];
+
+        const baseMidX = (anchorL.x + anchorR.x) * 0.5;
+        const baseMidY = (anchorL.y + anchorR.y) * 0.5;
+
+        // Pull vector from base midpoint to mouse tip
+        const pullX = this.dragSmoothX - baseMidX;
+        const pullY = this.dragSmoothY - baseMidY;
+        const pullLen = Math.hypot(pullX, pullY);
+        this.stretchDistance = pullLen;
+
+        // Tangent and normal along pull direction
+        const pullTanX = pullLen > 0.001 ? pullX / pullLen : 1;
+        const pullTanY = pullLen > 0.001 ? pullY / pullLen : 0;
+        const pullNormX = -pullTanY;
+        const pullNormY = pullTanX;
+
+        // Base width between anchor points
+        const baseDist = Math.hypot(anchorL.x - anchorR.x, anchorL.y - anchorR.y);
+        const wBase = Math.min(65, Math.max(35, baseDist * 0.5));
+        const wTip = 15;
+
+        // Viscous necking factor (mass conservation: neck narrows as stretch grows)
+        // High stickiness (level 5) can neck down thinner into gooey strands!
+        const neckSensitivity = 55 + (5 - this.stickiness) * 10;
+        const neckFactor = 1 / Math.sqrt(1 + Math.max(0, pullLen - 60) / neckSensitivity);
+
+        // Position the tip vertex directly at smoothed cursor position
+        const tipV = this.vertices[g];
+        tipV.x = this.dragSmoothX;
+        tipV.y = this.dragSmoothY;
+        tipV.vx = (this.dragX - this.dragPrevX) * 20;
+        tipV.vy = (this.dragY - this.dragPrevY) * 20;
+        tipV.pinned = true;
+
+        // Shape each pair of left/right vertices along the tendril spine
+        for (let d = 1; d <= K; d++) {
+          const t = 1 - d / (K + 1); // parameter from ~0 at base to ~1 at tip
+
+          // Spine point connecting base midpoint to mouse tip
+          let spineX = baseMidX + pullX * t;
+          let spineY = baseMidY + pullY * t;
+
+          // Quadratic transverse curvature offset
+          const curveOffset = Math.sin(t * Math.PI) * this.tendrilCurvature;
+          spineX += pullNormX * curveOffset;
+          spineY += pullNormY * curveOffset;
+
+          // Necking half-width at fraction t
+          const wLinear = wBase * (1 - t) + wTip * t;
+          const pinch = 4 * t * (1 - t) * (1 - neckFactor);
+          const halfWidth = Math.max(6, wLinear * (1 - pinch));
+
+          // Left and right target positions
+          const targetLX = spineX + pullNormX * halfWidth;
+          const targetLY = spineY + pullNormY * halfWidth;
+          const targetRX = spineX - pullNormX * halfWidth;
+          const targetRY = spineY - pullNormY * halfWidth;
+
+          const leftIdx = (g - d + n) % n;
+          const rightIdx = (g + d) % n;
+          const leftV = this.vertices[leftIdx];
+          const rightV = this.vertices[rightIdx];
+
+          const pullRatio = 0.42 + t * 0.45;
+          leftV.x += (targetLX - leftV.x) * pullRatio;
+          leftV.y += (targetLY - leftV.y) * pullRatio;
+          leftV.vx = (targetLX - leftV.x) * 15;
+          leftV.vy = (targetLY - leftV.y) * 15;
+          leftV.pinned = true;
+
+          rightV.x += (targetRX - rightV.x) * pullRatio;
+          rightV.y += (targetRY - rightV.y) * pullRatio;
+          rightV.vx = (targetRX - rightV.x) * 15;
+          rightV.vy = (targetRY - rightV.y) * 15;
+          rightV.pinned = true;
+        }
+
+        // Unpin all vertices not in the tendril
+        for (let i = 0; i < n; i++) {
+          let distFromGrab = Math.abs(i - g);
+          if (distFromGrab > n / 2) distFromGrab = n - distFromGrab;
+          if (distFromGrab > K) {
+            this.vertices[i].pinned = false;
+          }
+        }
+      } else {
+        for (let i = 0; i < n; i++) {
+          this.vertices[i].pinned = false;
+        }
+      }
+
+      // 2. Resting positions update
+      // When stretched, the main body subtly contracts (volume conservation)
+      let bodyContraction = 1.0;
+      let bodyShiftX = 0;
+      let bodyShiftY = 0;
+
+      if (this.isDragging && this.stretchDistance > 40) {
+        const pullX = this.dragSmoothX - this.cx;
+        const pullY = this.dragSmoothY - this.cy;
+        const pLen = Math.hypot(pullX, pullY) || 1;
+        const maxShift = 28;
+        const shiftAmt = Math.min(maxShift, (this.stretchDistance / 350) * maxShift);
+        bodyShiftX = (pullX / pLen) * shiftAmt;
+        bodyShiftY = (pullY / pLen) * shiftAmt;
+        bodyContraction = Math.max(0.82, 1 - (this.stretchDistance / 600) * 0.18);
+      }
+
+      for (let i = 0; i < n; i++) {
         const v = this.vertices[i];
+        const r = currentRadius * bodyContraction;
+        v.restX = this.cx + bodyShiftX + Math.cos(v.restAngle) * r;
+        v.restY = this.cy + bodyShiftY + Math.sin(v.restAngle) * r;
+      }
 
-        // If this vertex is currently being dragged, physics handles neighbors
-        if (this.isDragging && i === this.dragIndex) {
-          continue;
-        }
+      // 3. Multi-substep Spring-Damper Physics Integration
+      const subSteps = 2;
+      const subDt = Math.min(0.02, dt) / subSteps;
+      const kRest = 85;
+      const kNeighbor = 70;
+      const cDamp = 5.2 + (this.stickiness - 1) * 1.8;
 
-        const prev = this.vertices[(i - 1 + NUM_VERTICES) % NUM_VERTICES];
-        const next = this.vertices[(i + 1) % NUM_VERTICES];
+      for (let step = 0; step < subSteps; step++) {
+        for (let i = 0; i < n; i++) {
+          const v = this.vertices[i];
+          if (v.pinned) continue; // Pinned vertices are guided by viscous tendril kinematics
 
-        // Restoring force to base radius
-        const fSpring = -kSpring * (v.r - v.r0);
+          const prev = this.vertices[(i - 1 + n) % n];
+          const next = this.vertices[(i + 1) % n];
 
-        // Surface tension sharing between adjacent vertices
-        const fNeighbor = kNeighbor * ((prev.r - v.r) + (next.r - v.r));
+          // Restoring spring to equilibrium shape
+          const fRestX = -kRest * (v.x - v.restX);
+          const fRestY = -kRest * (v.y - v.restY);
 
-        // Damping force
-        const fDamp = -cDamp * v.v;
+          // Surface tension / neighbor cohesion
+          const avgNeighborX = (prev.x + next.x) * 0.5;
+          const avgNeighborY = (prev.y + next.y) * 0.5;
+          const fTensionX = kNeighbor * (avgNeighborX - v.x);
+          const fTensionY = kNeighbor * (avgNeighborY - v.y);
 
-        // Total force & acceleration
-        const accel = fSpring + fNeighbor + fDamp;
-        v.v += accel * dt;
-        v.r += v.v * dt;
+          // Damping force
+          const fDampX = -cDamp * v.vx;
+          const fDampY = -cDamp * v.vy;
 
-        // Clamp minimum radius to prevent inversion
-        if (v.r < v.r0 * 0.3) {
-          v.r = v.r0 * 0.3;
-          v.v = 0;
+          // Integrate
+          v.vx += (fRestX + fTensionX + fDampX) * subDt;
+          v.vy += (fRestY + fTensionY + fDampY) * subDt;
+          v.x += v.vx * subDt;
+          v.y += v.vy * subDt;
         }
       }
 
-      // Smooth idle breathing wobble
-      const idleWobble = Math.sin(this.idlePhase) * 2.5;
-      for (let i = 0; i < NUM_VERTICES; i++) {
-        this.vertices[i].r0 = this.baseRadius + idleWobble;
-      }
+      this.globalWobble *= 0.93;
+    }
 
-      this.globalWobble *= 0.92;
+    // Reset Slime shape to resting equilibrium
+    resetShape() {
+      this.isDragging = false;
+      this.dragIndex = -1;
+      this.isHoverStuck = false;
+      this.stretchDistance = 0;
+      this.tendrilCurvature = 0;
+      for (let i = 0; i < this.vertices.length; i++) {
+        const v = this.vertices[i];
+        v.x = this.cx + Math.cos(v.restAngle) * this.baseRadius;
+        v.y = this.cy + Math.sin(v.restAngle) * this.baseRadius;
+        v.vx = 0;
+        v.vy = 0;
+        v.pinned = false;
+      }
+      this.globalWobble = 0.4;
     }
 
     // Draw the Slime on Studio Canvas
     draw(ctx) {
       ctx.save();
 
-      // 1. Shadow beneath the slime
+      // 1. Soft Table Contact Shadows
       ctx.fillStyle = 'rgba(10, 20, 35, 0.45)';
       ctx.beginPath();
-      ctx.ellipse(this.cx, this.cy + this.baseRadius * 0.75, this.baseRadius * 1.15, 24, 0, 0, Math.PI * 2);
+      ctx.ellipse(this.cx, this.cy + this.baseRadius * 0.72, this.baseRadius * 1.15, 22, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // 2. Smooth Closed Spline Path through all 32 Vertices
-      const pts = [];
-      for (let i = 0; i < NUM_VERTICES; i++) {
-        const v = this.vertices[i];
-        pts.push({
-          x: this.cx + Math.cos(v.angle) * v.r,
-          y: this.cy + Math.sin(v.angle) * v.r
-        });
+      // Dynamic stretched shadow under the tendril
+      if (this.isDragging && this.stretchDistance > 40) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(10, 20, 35, 0.22)';
+        const tipShadowX = this.dragSmoothX;
+        const tipShadowY = this.cy + this.baseRadius * 0.72 + (this.dragSmoothY - this.cy) * 0.2;
+        ctx.beginPath();
+        ctx.ellipse(tipShadowX, tipShadowY, 26, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(this.cx, this.cy + this.baseRadius * 0.72);
+        ctx.lineTo(tipShadowX, tipShadowY);
+        ctx.lineWidth = 22;
+        ctx.strokeStyle = 'rgba(10, 20, 35, 0.16)';
+        ctx.stroke();
+        ctx.restore();
       }
 
+      // 2. Smooth Closed Spline Path through all 2D Vertices
+      const n = this.vertices.length;
       ctx.beginPath();
-      // Midpoint curve interpolation
-      const midX0 = (pts[0].x + pts[NUM_VERTICES - 1].x) / 2;
-      const midY0 = (pts[0].y + pts[NUM_VERTICES - 1].y) / 2;
+      const midX0 = (this.vertices[0].x + this.vertices[n - 1].x) * 0.5;
+      const midY0 = (this.vertices[0].y + this.vertices[n - 1].y) * 0.5;
       ctx.moveTo(midX0, midY0);
 
-      for (let i = 0; i < NUM_VERTICES; i++) {
-        const next = pts[(i + 1) % NUM_VERTICES];
-        const midX = (pts[i].x + next.x) / 2;
-        const midY = (pts[i].y + next.y) / 2;
-        ctx.quadraticCurveTo(pts[i].x, pts[i].y, midX, midY);
+      for (let i = 0; i < n; i++) {
+        const next = this.vertices[(i + 1) % n];
+        const midX = (this.vertices[i].x + next.x) * 0.5;
+        const midY = (this.vertices[i].y + next.y) * 0.5;
+        ctx.quadraticCurveTo(this.vertices[i].x, this.vertices[i].y, midX, midY);
       }
       ctx.closePath();
 
-      // 3. Rich 3D Gradient Jelly Fill
-      const grad = ctx.createRadialGradient(
-        this.cx - this.baseRadius * 0.3,
-        this.cy - this.baseRadius * 0.35,
-        10,
-        this.cx,
-        this.cy,
-        this.baseRadius * 1.3
-      );
+      // 3. Rich Dynamic 3D Radial Gradient Jelly Fill
+      let maxDist = this.baseRadius * 1.35;
+      if (this.isDragging) {
+        const dragDist = Math.hypot(this.dragSmoothX - this.cx, this.dragSmoothY - this.cy);
+        maxDist = Math.max(maxDist, dragDist + 60);
+      }
+      const lightX = this.cx - this.baseRadius * 0.3;
+      const lightY = this.cy - this.baseRadius * 0.35;
+      const grad = ctx.createRadialGradient(lightX, lightY, 12, this.cx, this.cy, maxDist);
 
       if (this.texture === 'gold') {
         grad.addColorStop(0, '#fffbe0');
@@ -678,9 +901,9 @@
       ctx.fill();
       ctx.stroke();
 
-      // 4. Texture-Specific Internal Detailing (Clipped to body)
+      // 4. Texture-Specific Internal Detailing (Clipped to soft-body)
       ctx.save();
-      ctx.clip(); // Clip all texture elements inside the slime body!
+      ctx.clip();
 
       // Cloud Slime ☁️: Fluffy cumulus layered puffs
       if (this.texture === 'cloud') {
@@ -690,18 +913,48 @@
           ctx.arc(this.cx + p.ox, this.cy + p.oy, p.r, 0, Math.PI * 2);
           ctx.fill();
         });
-        // Inner highlights
         ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
         ctx.beginPath();
         ctx.arc(this.cx - 15, this.cy - 10, 55, 0, Math.PI * 2);
         ctx.fill();
+
+        // Wispy cloud puffs stretching through the tendril if dragging
+        if (this.isDragging && this.stretchDistance > this.baseRadius * 0.9) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+          const midPuffX = this.cx * 0.45 + this.dragSmoothX * 0.55;
+          const midPuffY = this.cy * 0.45 + this.dragSmoothY * 0.55;
+          ctx.beginPath();
+          ctx.arc(midPuffX, midPuffY, 18, 0, Math.PI * 2);
+          ctx.fill();
+
+          const tipPuffX = this.cx * 0.2 + this.dragSmoothX * 0.8;
+          const tipPuffY = this.cy * 0.2 + this.dragSmoothY * 0.8;
+          ctx.beginPath();
+          ctx.arc(tipPuffX, tipPuffY, 14, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
 
       // Floam Crunch 🍡: Moving micro-foam beads with 3D sphere highlights
       else if (this.texture === 'floam') {
+        const isPulling = this.isDragging && this.stretchDistance > 30;
+        const pullDirX = isPulling ? (this.dragSmoothX - this.cx) / this.stretchDistance : 0;
+        const pullDirY = isPulling ? (this.dragSmoothY - this.cy) / this.stretchDistance : 0;
+
         this.foamBeads.forEach(b => {
-          const bx = this.cx + Math.cos(b.ang) * (this.baseRadius * b.distRatio);
-          const by = this.cy + Math.sin(b.ang) * (this.baseRadius * b.distRatio);
+          let bx = this.cx + Math.cos(b.ang) * (this.baseRadius * b.distRatio);
+          let by = this.cy + Math.sin(b.ang) * (this.baseRadius * b.distRatio);
+
+          if (isPulling) {
+            const beadDirX = Math.cos(b.ang);
+            const beadDirY = Math.sin(b.ang);
+            const alignDot = beadDirX * pullDirX + beadDirY * pullDirY;
+            if (alignDot > 0.45) {
+              const stretchInfluence = Math.pow(alignDot, 2) * (this.stretchDistance * 0.72) * b.distRatio;
+              bx += pullDirX * stretchInfluence;
+              by += pullDirY * stretchInfluence;
+            }
+          }
 
           ctx.fillStyle = b.color;
           ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
@@ -735,13 +988,42 @@
         ctx.moveTo(this.cx - 50, this.cy + 15);
         ctx.bezierCurveTo(this.cx - 10, this.cy - 25, this.cx + 35, this.cy - 20, this.cx + 60, this.cy + 25);
         ctx.stroke();
+
+        // Extra swirl extending into stretched tendril if dragging
+        if (this.isDragging && this.stretchDistance > this.baseRadius * 0.8) {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+          ctx.lineWidth = 12;
+          ctx.beginPath();
+          ctx.moveTo(this.cx, this.cy);
+          ctx.quadraticCurveTo(
+            (this.cx + this.dragSmoothX) * 0.5 + 10,
+            (this.cy + this.dragSmoothY) * 0.5 - 10,
+            this.dragSmoothX,
+            this.dragSmoothY
+          );
+          ctx.stroke();
+        }
       }
 
       // Glitter Galaxy ✨: Holographic twinkling 4-point star sparkles
       else if (this.texture === 'glitter') {
+        const isPulling = this.isDragging && this.stretchDistance > 30;
+        const pullDirX = isPulling ? (this.dragSmoothX - this.cx) / this.stretchDistance : 0;
+        const pullDirY = isPulling ? (this.dragSmoothY - this.cy) / this.stretchDistance : 0;
+
         this.glitterStars.forEach(s => {
-          const sx = this.cx + Math.cos(s.ang) * (this.baseRadius * s.distRatio);
-          const sy = this.cy + Math.sin(s.ang) * (this.baseRadius * s.distRatio);
+          let sx = this.cx + Math.cos(s.ang) * (this.baseRadius * s.distRatio);
+          let sy = this.cy + Math.sin(s.ang) * (this.baseRadius * s.distRatio);
+
+          if (isPulling) {
+            const alignDot = Math.cos(s.ang) * pullDirX + Math.sin(s.ang) * pullDirY;
+            if (alignDot > 0.4) {
+              const stretchInfluence = Math.pow(alignDot, 2) * (this.stretchDistance * 0.7) * s.distRatio;
+              sx += pullDirX * stretchInfluence;
+              sy += pullDirY * stretchInfluence;
+            }
+          }
+
           const pulse = (Math.sin(this.idlePhase * 2 + s.phase) + 1) * 0.5;
           const sz = s.size * (0.6 + pulse * 0.6);
 
@@ -769,6 +1051,16 @@
 
         ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
         ctx.fill();
+
+        // Prism refraction facet along stretch
+        if (this.isDragging && this.stretchDistance > 40) {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(this.cx, this.cy);
+          ctx.lineTo(this.dragSmoothX, this.dragSmoothY);
+          ctx.stroke();
+        }
       }
 
       // Golden Chrome 👑: Metallic horizon reflection line
@@ -778,6 +1070,16 @@
         ctx.beginPath();
         ctx.arc(this.cx, this.cy, this.baseRadius * 0.55, Math.PI * 1.1, Math.PI * 1.5);
         ctx.stroke();
+
+        // Molten chrome streak into stretched neck
+        if (this.isDragging && this.stretchDistance > 40) {
+          ctx.strokeStyle = '#fffbe0';
+          ctx.lineWidth = 3.5;
+          ctx.beginPath();
+          ctx.moveTo(this.cx, this.cy);
+          ctx.lineTo(this.dragSmoothX, this.dragSmoothY);
+          ctx.stroke();
+        }
       }
 
       // Topping Charms
@@ -796,7 +1098,28 @@
 
       ctx.restore(); // End clipping
 
-      // 5. Specular Gloss Shines (Cartoon jelly shine overlay)
+      // 5. Gooey Strands / Filaments (Viscous taffy threads inside the stretch for stickiness >= 3)
+      if (this.isDragging && this.stretchDistance > this.baseRadius * 1.05) {
+        ctx.save();
+        const strandCount = this.stickiness >= 4 ? 3 : 2;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.lineWidth = this.stickiness >= 4 ? 2.0 : 1.2;
+        for (let s = 0; s < strandCount; s++) {
+          const offset = (s - (strandCount - 1) / 2) * 8;
+          ctx.beginPath();
+          ctx.moveTo(this.cx + offset, this.cy + offset);
+          ctx.quadraticCurveTo(
+            (this.cx + this.dragSmoothX) * 0.5 + offset * 1.8,
+            (this.cy + this.dragSmoothY) * 0.5 + 8,
+            this.dragSmoothX + offset * 0.3,
+            this.dragSmoothY + offset * 0.3
+          );
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // 6. Specular Gloss Shines (Cartoon jelly sheen)
       ctx.save();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
       ctx.lineWidth = 7.0;
@@ -810,9 +1133,23 @@
       ctx.beginPath();
       ctx.arc(this.cx - this.baseRadius * 0.55, this.cy - this.baseRadius * 0.52, 6, 0, Math.PI * 2);
       ctx.fill();
+
+      // 7. Tip Pinch Specular Highlight (The grab point where user is holding the slime!)
+      if (this.isDragging) {
+        const tipX = this.dragSmoothX;
+        const tipY = this.dragSmoothY;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+        ctx.beginPath();
+        ctx.arc(tipX - 3, tipY - 3, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        ctx.beginPath();
+        ctx.arc(tipX + 3.5, tipY + 3, 2.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
 
-      // 6. Draw Hover Stickiness Goo Filaments & Indicator
+      // 8. Draw Hover Stickiness Goo Filaments & Indicator
       if (this.isHoverStuck) {
         ctx.save();
         const filaments = 4;
@@ -823,7 +1160,6 @@
           const spread = (f - filaments / 2) * 8;
           ctx.beginPath();
           ctx.moveTo(this.hoverStickX + spread, this.hoverStickY + spread);
-          // Curve connecting cursor to slime center
           ctx.quadraticCurveTo(
             (this.hoverStickX + this.cx) / 2 + spread * 2,
             (this.hoverStickY + this.cy) / 2,
@@ -1287,12 +1623,7 @@
     }
 
     resetShape() {
-      // Restore all 32 vertices to resting radius
-      this.slime.vertices.forEach(v => {
-        v.r = this.slime.baseRadius;
-        v.v = 0;
-      });
-      this.slime.globalWobble = 0.4;
+      this.slime.resetShape();
       if (window.slimeAudio) window.slimeAudio.playASMRSquish(this.slime.stickiness);
     }
 
