@@ -60,6 +60,14 @@
       tagline: 'Crunchy micro-foam beads',
       desc: 'Packed with thousands of colorful crunchy foam beads that pop and crackle when squished!'
     },
+    crunchy: {
+      id: 'crunchy',
+      name: 'Crispy Bingsu 🍧',
+      price: 200,
+      icon: '🍧',
+      tagline: 'Ultra-crispy beads & crackles',
+      desc: 'Packed with thousands of iridescent faceted Bingsu beads that crackle, crunch, and pop with loud ASMR clicks on every squish!'
+    },
     butter: {
       id: 'butter',
       name: 'Butter Slime 🧈',
@@ -346,6 +354,47 @@
         { ox: 38, oy: 25, r: 40 }
       ];
 
+      // Real Slime Relaxation & Pooling (flattens and gets bigger if not touched)
+      this.untouchedTimer = 0;
+      this.meltProgress = 0; // 0 = bouncy rounded dome, 1 = relaxed flat pool
+
+      // Micro-bubbles trapped inside real slime matrix (creates authentic translucent depth)
+      this.microBubbles = [];
+      for (let i = 0; i < 34; i++) {
+        const dist = Math.sqrt(Math.random()) * (radius * 0.88);
+        const ang = Math.random() * Math.PI * 2;
+        this.microBubbles.push({
+          distRatio: dist / radius,
+          ang: ang,
+          size: 1.6 + Math.random() * 2.6,
+          alpha: 0.35 + Math.random() * 0.4
+        });
+      }
+
+      // Iridescent Faceted Beads for Crunchy Bingsu Texture
+      this.bingsuBeads = [];
+      const bingsuColors = [
+        'rgba(255, 255, 255, 0.85)',
+        'rgba(255, 182, 193, 0.85)',
+        'rgba(175, 238, 238, 0.85)',
+        'rgba(255, 240, 180, 0.85)',
+        'rgba(221, 160, 221, 0.85)',
+        'rgba(180, 255, 210, 0.85)'
+      ];
+      for (let i = 0; i < 48; i++) {
+        const dist = Math.sqrt(Math.random()) * (radius * 0.86);
+        const ang = Math.random() * Math.PI * 2;
+        this.bingsuBeads.push({
+          distRatio: dist / radius,
+          ang: ang,
+          w: 6 + Math.random() * 6,
+          h: 4 + Math.random() * 4,
+          rot: Math.random() * Math.PI,
+          color: bingsuColors[Math.floor(Math.random() * bingsuColors.length)],
+          shimmer: Math.random() * Math.PI * 2
+        });
+      }
+
       // Topping charms
       this.charmItems = [];
       this.initCharms();
@@ -439,6 +488,8 @@
 
     // 💥 1. CLICK TO SQUISH: Apply localized indentation & ripple waves
     squish(x, y, force = 65) {
+      this.untouchedTimer = 0;
+      this.meltProgress = Math.max(0, this.meltProgress - 0.28); // firm up when touched
       const targetIdx = this.getNearestVertexIndex(x, y);
 
       // Direction from center to squish point
@@ -480,6 +531,8 @@
 
     // ➰ 2. CLICK & DRAG TO STRETCH: 2D Viscous Putty Tendril that tracks mouse anywhere!
     startDrag(x, y) {
+      this.untouchedTimer = 0;
+      this.meltProgress = Math.max(0, this.meltProgress - 0.38); // firm up when stretched
       this.isDragging = true;
       this.dragIndex = this.getNearestVertexIndex(x, y);
       this.dragX = x;
@@ -494,6 +547,7 @@
 
     updateDrag(x, y) {
       if (!this.isDragging || this.dragIndex === -1) return;
+      this.untouchedTimer = 0;
       this.dragPrevX = this.dragX;
       this.dragPrevY = this.dragY;
       this.dragX = x;
@@ -503,10 +557,10 @@
     endDrag() {
       if (!this.isDragging) return;
       this.isDragging = false;
+      this.untouchedTimer = 0;
       if (this.dragIndex !== -1) {
         const n = this.vertices.length;
         // Elastic rebound snap-back on all stretched tendril vertices!
-        // Snap multiplier: slick putty snaps back very fast, gooey taffy has viscous retraction
         const snapMultiplier = 4.2 - (this.stickiness - 1) * 0.45;
         const K = 7;
         for (let d = 0; d <= K; d++) {
@@ -537,7 +591,6 @@
 
     // 🍯 3. HOVER STICKINESS: Adheres to cursor, holds for duration, then lets go!
     updateHover(mouseX, mouseY, dt, audioSystem) {
-      // Manage cooldown timer
       if (this.hoverCooldown > 0) {
         this.hoverCooldown -= dt;
       }
@@ -546,6 +599,7 @@
 
       // If hovering over slime, not currently dragging, and cooldown expired -> STICK!
       if (isInside && !this.isDragging && !this.isHoverStuck && this.hoverCooldown <= 0) {
+        this.untouchedTimer = 0;
         this.isHoverStuck = true;
         this.hoverStickMax = STICKINESS_HOLD_TIMES[this.stickiness] || 1.5;
         this.hoverStickTimer = this.hoverStickMax;
@@ -553,7 +607,6 @@
         this.hoverStickY = mouseY;
         this.hoverVertexIdx = this.getNearestVertexIndex(mouseX, mouseY);
 
-        // Subtle initial adhesion sound
         if (audioSystem) {
           audioSystem.playASMRSquish(Math.max(1, this.stickiness - 1));
         }
@@ -561,6 +614,7 @@
 
       // While hovering stuck
       if (this.isHoverStuck) {
+        this.untouchedTimer = 0;
         this.hoverStickTimer -= dt;
         this.hoverStickX = mouseX;
         this.hoverStickY = mouseY;
@@ -612,13 +666,34 @@
       const n = this.vertices.length;
       this.idlePhase += dt * 3.2;
 
-      // Base idle breathing oscillation
-      const idleWobble = Math.sin(this.idlePhase) * 2.2;
+      // 0. Update Untouched / Melt Pooling State
+      // Real slime oozes, relaxes, flattens, and spreads bigger when left untouched!
+      if (this.isDragging || this.isHoverStuck) {
+        this.untouchedTimer = 0;
+        this.meltProgress = Math.max(0, this.meltProgress - dt * 3.5);
+      } else {
+        this.untouchedTimer += dt;
+        if (this.untouchedTimer > 1.2) {
+          // Slowly pool and flatten over ~3.5 seconds
+          const targetMelt = Math.min(1.0, (this.untouchedTimer - 1.2) / 3.2);
+          this.meltProgress += (targetMelt - this.meltProgress) * (dt * 1.5);
+        } else {
+          this.meltProgress += (0 - this.meltProgress) * (dt * 2.2);
+        }
+      }
+
+      // Base idle breathing oscillation (damped down when flat and relaxed)
+      const idleWobble = Math.sin(this.idlePhase) * (2.2 * (1 - this.meltProgress * 0.6));
       const currentRadius = this.baseRadius + idleWobble;
+
+      // Melt expansion and flattening scales
+      // Expands up to +42% bigger, flattens vertically by -22%, spreads horizontally by +16%
+      const expansion = 1.0 + this.meltProgress * 0.42;
+      const rxScale = expansion * (1.0 + this.meltProgress * 0.16);
+      const ryScale = expansion * (1.0 - this.meltProgress * 0.22);
 
       // 1. Viscous drag tracking & tendril geometry update
       if (this.isDragging && this.dragIndex !== -1) {
-        // Viscous lag: smooth tracking that follows the mouse with fluid inertia
         const viscousFollow = 0.42;
         this.dragSmoothX += (this.dragX - this.dragSmoothX) * viscousFollow;
         this.dragSmoothY += (this.dragY - this.dragSmoothY) * viscousFollow;
@@ -633,12 +708,11 @@
         const normCursorY = toCursorX / cursorDist;
         const lateralSpeed = mdx * normCursorX + mdy * normCursorY;
         this.tendrilCurvature += (lateralSpeed * 1.8 - this.tendrilCurvature) * 0.18;
-        this.tendrilCurvature *= 0.94; // continuous damping
+        this.tendrilCurvature *= 0.94;
 
         const g = this.dragIndex;
         const K = 7; // 7 neighbors on each side = 15 tendril vertices
 
-        // Left & right base anchors where the tendril roots into the main slime body
         const anchorLIdx = (g - K - 1 + n) % n;
         const anchorRIdx = (g + K + 1) % n;
         const anchorL = this.vertices[anchorLIdx];
@@ -647,29 +721,25 @@
         const baseMidX = (anchorL.x + anchorR.x) * 0.5;
         const baseMidY = (anchorL.y + anchorR.y) * 0.5;
 
-        // Pull vector from base midpoint to mouse tip
         const pullX = this.dragSmoothX - baseMidX;
         const pullY = this.dragSmoothY - baseMidY;
         const pullLen = Math.hypot(pullX, pullY);
         this.stretchDistance = pullLen;
 
-        // Tangent and normal along pull direction
         const pullTanX = pullLen > 0.001 ? pullX / pullLen : 1;
         const pullTanY = pullLen > 0.001 ? pullY / pullLen : 0;
         const pullNormX = -pullTanY;
         const pullNormY = pullTanX;
 
-        // Base width between anchor points
         const baseDist = Math.hypot(anchorL.x - anchorR.x, anchorL.y - anchorR.y);
         const wBase = Math.min(65, Math.max(35, baseDist * 0.5));
         const wTip = 15;
 
         // Viscous necking factor (mass conservation: neck narrows as stretch grows)
-        // High stickiness (level 5) can neck down thinner into gooey strands!
         const neckSensitivity = 55 + (5 - this.stickiness) * 10;
         const neckFactor = 1 / Math.sqrt(1 + Math.max(0, pullLen - 60) / neckSensitivity);
 
-        // Position the tip vertex directly at smoothed cursor position
+        // Position tip vertex directly at smoothed cursor position
         const tipV = this.vertices[g];
         tipV.x = this.dragSmoothX;
         tipV.y = this.dragSmoothY;
@@ -679,23 +749,19 @@
 
         // Shape each pair of left/right vertices along the tendril spine
         for (let d = 1; d <= K; d++) {
-          const t = 1 - d / (K + 1); // parameter from ~0 at base to ~1 at tip
+          const t = 1 - d / (K + 1);
 
-          // Spine point connecting base midpoint to mouse tip
           let spineX = baseMidX + pullX * t;
           let spineY = baseMidY + pullY * t;
 
-          // Quadratic transverse curvature offset
           const curveOffset = Math.sin(t * Math.PI) * this.tendrilCurvature;
           spineX += pullNormX * curveOffset;
           spineY += pullNormY * curveOffset;
 
-          // Necking half-width at fraction t
           const wLinear = wBase * (1 - t) + wTip * t;
           const pinch = 4 * t * (1 - t) * (1 - neckFactor);
           const halfWidth = Math.max(6, wLinear * (1 - pinch));
 
-          // Left and right target positions
           const targetLX = spineX + pullNormX * halfWidth;
           const targetLY = spineY + pullNormY * halfWidth;
           const targetRX = spineX - pullNormX * halfWidth;
@@ -734,8 +800,7 @@
         }
       }
 
-      // 2. Resting positions update
-      // When stretched, the main body subtly contracts (volume conservation)
+      // 2. Resting positions update (incorporates melt pooling expansion & flattening)
       let bodyContraction = 1.0;
       let bodyShiftX = 0;
       let bodyShiftY = 0;
@@ -753,9 +818,10 @@
 
       for (let i = 0; i < n; i++) {
         const v = this.vertices[i];
-        const r = currentRadius * bodyContraction;
-        v.restX = this.cx + bodyShiftX + Math.cos(v.restAngle) * r;
-        v.restY = this.cy + bodyShiftY + Math.sin(v.restAngle) * r;
+        const rx = currentRadius * rxScale * bodyContraction;
+        const ry = currentRadius * ryScale * bodyContraction;
+        v.restX = this.cx + bodyShiftX + Math.cos(v.restAngle) * rx;
+        v.restY = this.cy + bodyShiftY + Math.sin(v.restAngle) * ry;
       }
 
       // 3. Multi-substep Spring-Damper Physics Integration
@@ -768,7 +834,7 @@
       for (let step = 0; step < subSteps; step++) {
         for (let i = 0; i < n; i++) {
           const v = this.vertices[i];
-          if (v.pinned) continue; // Pinned vertices are guided by viscous tendril kinematics
+          if (v.pinned) continue;
 
           const prev = this.vertices[(i - 1 + n) % n];
           const next = this.vertices[(i + 1) % n];
@@ -805,6 +871,8 @@
       this.isHoverStuck = false;
       this.stretchDistance = 0;
       this.tendrilCurvature = 0;
+      this.untouchedTimer = 0;
+      this.meltProgress = 0;
       for (let i = 0; i < this.vertices.length; i++) {
         const v = this.vertices[i];
         v.x = this.cx + Math.cos(v.restAngle) * this.baseRadius;
@@ -816,34 +884,37 @@
       this.globalWobble = 0.4;
     }
 
-    // Draw the Slime on Studio Canvas
+    // Draw the Slime on Studio Canvas with Real Slime Translucency, Depth & Textures
     draw(ctx) {
       ctx.save();
 
-      // 1. Soft Table Contact Shadows
-      ctx.fillStyle = 'rgba(10, 20, 35, 0.45)';
+      // 1. Soft Table Contact Shadows (expands wider and flattens thinner as slime melts)
+      ctx.save();
+      const shadowW = this.baseRadius * 1.15 * (1.0 + this.meltProgress * 0.45);
+      const shadowH = 22 * (1.0 - this.meltProgress * 0.28);
+      const shadowY = this.cy + this.baseRadius * (0.72 - this.meltProgress * 0.2);
+      ctx.fillStyle = `rgba(10, 20, 35, ${0.45 - this.meltProgress * 0.12})`;
       ctx.beginPath();
-      ctx.ellipse(this.cx, this.cy + this.baseRadius * 0.72, this.baseRadius * 1.15, 22, 0, 0, Math.PI * 2);
+      ctx.ellipse(this.cx, shadowY, shadowW, Math.max(8, shadowH), 0, 0, Math.PI * 2);
       ctx.fill();
 
       // Dynamic stretched shadow under the tendril
       if (this.isDragging && this.stretchDistance > 40) {
-        ctx.save();
         ctx.fillStyle = 'rgba(10, 20, 35, 0.22)';
         const tipShadowX = this.dragSmoothX;
-        const tipShadowY = this.cy + this.baseRadius * 0.72 + (this.dragSmoothY - this.cy) * 0.2;
+        const tipShadowY = shadowY + (this.dragSmoothY - this.cy) * 0.2;
         ctx.beginPath();
         ctx.ellipse(tipShadowX, tipShadowY, 26, 12, 0, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.beginPath();
-        ctx.moveTo(this.cx, this.cy + this.baseRadius * 0.72);
+        ctx.moveTo(this.cx, shadowY);
         ctx.lineTo(tipShadowX, tipShadowY);
         ctx.lineWidth = 22;
         ctx.strokeStyle = 'rgba(10, 20, 35, 0.16)';
         ctx.stroke();
-        ctx.restore();
       }
+      ctx.restore();
 
       // 2. Smooth Closed Spline Path through all 2D Vertices
       const n = this.vertices.length;
@@ -860,14 +931,14 @@
       }
       ctx.closePath();
 
-      // 3. Rich Dynamic 3D Radial Gradient Jelly Fill
-      let maxDist = this.baseRadius * 1.35;
+      // 3. Rich Dynamic 3D Radial Gradient Jelly Fill (adapts to pooling puddle)
+      let maxDist = this.baseRadius * (1.35 + this.meltProgress * 0.38);
       if (this.isDragging) {
         const dragDist = Math.hypot(this.dragSmoothX - this.cx, this.dragSmoothY - this.cy);
         maxDist = Math.max(maxDist, dragDist + 60);
       }
-      const lightX = this.cx - this.baseRadius * 0.3;
-      const lightY = this.cy - this.baseRadius * 0.35;
+      const lightX = this.cx - this.baseRadius * 0.3 * (1 - this.meltProgress * 0.3);
+      const lightY = this.cy - this.baseRadius * (0.35 - this.meltProgress * 0.18);
       const grad = ctx.createRadialGradient(lightX, lightY, 12, this.cx, this.cy, maxDist);
 
       if (this.texture === 'gold') {
@@ -882,6 +953,12 @@
         grad.addColorStop(0.35, adjustColor(this.color, 0.35));
         grad.addColorStop(0.75, this.color);
         grad.addColorStop(1, adjustColor(this.color, -0.25));
+      } else if (this.texture === 'crunchy') {
+        // Shimmering translucent candy jewel base for Bingsu
+        grad.addColorStop(0, adjustColor(this.color, 0.65));
+        grad.addColorStop(0.35, adjustColor(this.color, 0.25));
+        grad.addColorStop(0.7, this.color);
+        grad.addColorStop(1, adjustColor(this.color, -0.38));
       } else if (this.hasDualSwirl) {
         grad.addColorStop(0, adjustColor(this.color, 0.5));
         grad.addColorStop(0.45, this.color);
@@ -905,8 +982,97 @@
       ctx.save();
       ctx.clip();
 
+      // A. Real Slime Subsurface Scattering Rim Glow (translucent jelly edge)
+      const innerGlow = ctx.createRadialGradient(this.cx, this.cy, this.baseRadius * 0.35, this.cx, this.cy, maxDist);
+      innerGlow.addColorStop(0, 'rgba(255, 255, 255, 0)');
+      innerGlow.addColorStop(0.78, 'rgba(255, 255, 255, 0)');
+      innerGlow.addColorStop(1, 'rgba(255, 255, 255, 0.30)');
+      ctx.fillStyle = innerGlow;
+      ctx.fillRect(this.cx - maxDist, this.cy - maxDist, maxDist * 2, maxDist * 2);
+
+      // B. Suspended Micro-Air Bubbles (Authentic real slime texture detail!)
+      const isPulling = this.isDragging && this.stretchDistance > 30;
+      const pullDirX = isPulling ? (this.dragSmoothX - this.cx) / this.stretchDistance : 0;
+      const pullDirY = isPulling ? (this.dragSmoothY - this.cy) / this.stretchDistance : 0;
+
+      this.microBubbles.forEach(b => {
+        let mx = this.cx + Math.cos(b.ang) * (this.baseRadius * b.distRatio * (1 + this.meltProgress * 0.38));
+        let my = this.cy + Math.sin(b.ang) * (this.baseRadius * b.distRatio * (1 - this.meltProgress * 0.18));
+
+        if (isPulling) {
+          const dot = Math.cos(b.ang) * pullDirX + Math.sin(b.ang) * pullDirY;
+          if (dot > 0.4) {
+            const pullAmt = Math.pow(dot, 2) * (this.stretchDistance * 0.65) * b.distRatio;
+            mx += pullDirX * pullAmt;
+            my += pullDirY * pullAmt;
+          }
+        }
+
+        // Translucent bubble body
+        ctx.fillStyle = `rgba(255, 255, 255, ${b.alpha * 0.45})`;
+        ctx.strokeStyle = `rgba(0, 0, 0, ${b.alpha * 0.18})`;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.arc(mx, my, b.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Pinpoint specular glint
+        ctx.fillStyle = `rgba(255, 255, 255, ${b.alpha * 0.95})`;
+        ctx.beginPath();
+        ctx.arc(mx - b.size * 0.35, my - b.size * 0.35, b.size * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // C. Crunchy Bingsu 🍧 Texture: Iridescent faceted beads with rainbow crystal glints!
+      if (this.texture === 'crunchy') {
+        this.bingsuBeads.forEach(b => {
+          let bx = this.cx + Math.cos(b.ang) * (this.baseRadius * b.distRatio * (1 + this.meltProgress * 0.35));
+          let by = this.cy + Math.sin(b.ang) * (this.baseRadius * b.distRatio * (1 - this.meltProgress * 0.18));
+
+          if (isPulling) {
+            const dot = Math.cos(b.ang) * pullDirX + Math.sin(b.ang) * pullDirY;
+            if (dot > 0.4) {
+              const pullAmt = Math.pow(dot, 2) * (this.stretchDistance * 0.72) * b.distRatio;
+              bx += pullDirX * pullAmt;
+              by += pullDirY * pullAmt;
+            }
+          }
+
+          ctx.save();
+          ctx.translate(bx, by);
+          ctx.rotate(b.rot);
+
+          // Translucent iridescent faceted bead tile
+          ctx.fillStyle = b.color;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+          ctx.lineWidth = 1.0;
+          ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
+          ctx.strokeRect(-b.w / 2, -b.h / 2, b.w, b.h);
+
+          // Facet reflection line
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+          ctx.lineWidth = 0.8;
+          ctx.beginPath();
+          ctx.moveTo(-b.w / 2, -b.h / 2);
+          ctx.lineTo(b.w / 2, b.h / 2);
+          ctx.stroke();
+
+          // Sparkle glint on bead corner
+          const pulse = (Math.sin(this.idlePhase * 3 + b.shimmer) + 1) * 0.5;
+          if (pulse > 0.65) {
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(-b.w / 2 + 1, -b.h / 2 + 1, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          ctx.restore();
+        });
+      }
+
       // Cloud Slime ☁️: Fluffy cumulus layered puffs
-      if (this.texture === 'cloud') {
+      else if (this.texture === 'cloud') {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
         this.cloudPuffs.forEach(p => {
           ctx.beginPath();
@@ -937,13 +1103,9 @@
 
       // Floam Crunch 🍡: Moving micro-foam beads with 3D sphere highlights
       else if (this.texture === 'floam') {
-        const isPulling = this.isDragging && this.stretchDistance > 30;
-        const pullDirX = isPulling ? (this.dragSmoothX - this.cx) / this.stretchDistance : 0;
-        const pullDirY = isPulling ? (this.dragSmoothY - this.cy) / this.stretchDistance : 0;
-
         this.foamBeads.forEach(b => {
-          let bx = this.cx + Math.cos(b.ang) * (this.baseRadius * b.distRatio);
-          let by = this.cy + Math.sin(b.ang) * (this.baseRadius * b.distRatio);
+          let bx = this.cx + Math.cos(b.ang) * (this.baseRadius * b.distRatio * (1 + this.meltProgress * 0.35));
+          let by = this.cy + Math.sin(b.ang) * (this.baseRadius * b.distRatio * (1 - this.meltProgress * 0.18));
 
           if (isPulling) {
             const beadDirX = Math.cos(b.ang);
@@ -989,7 +1151,6 @@
         ctx.bezierCurveTo(this.cx - 10, this.cy - 25, this.cx + 35, this.cy - 20, this.cx + 60, this.cy + 25);
         ctx.stroke();
 
-        // Extra swirl extending into stretched tendril if dragging
         if (this.isDragging && this.stretchDistance > this.baseRadius * 0.8) {
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
           ctx.lineWidth = 12;
@@ -1007,13 +1168,9 @@
 
       // Glitter Galaxy ✨: Holographic twinkling 4-point star sparkles
       else if (this.texture === 'glitter') {
-        const isPulling = this.isDragging && this.stretchDistance > 30;
-        const pullDirX = isPulling ? (this.dragSmoothX - this.cx) / this.stretchDistance : 0;
-        const pullDirY = isPulling ? (this.dragSmoothY - this.cy) / this.stretchDistance : 0;
-
         this.glitterStars.forEach(s => {
-          let sx = this.cx + Math.cos(s.ang) * (this.baseRadius * s.distRatio);
-          let sy = this.cy + Math.sin(s.ang) * (this.baseRadius * s.distRatio);
+          let sx = this.cx + Math.cos(s.ang) * (this.baseRadius * s.distRatio * (1 + this.meltProgress * 0.35));
+          let sy = this.cy + Math.sin(s.ang) * (this.baseRadius * s.distRatio * (1 - this.meltProgress * 0.18));
 
           if (isPulling) {
             const alignDot = Math.cos(s.ang) * pullDirX + Math.sin(s.ang) * pullDirY;
@@ -1052,7 +1209,6 @@
         ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
         ctx.fill();
 
-        // Prism refraction facet along stretch
         if (this.isDragging && this.stretchDistance > 40) {
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
           ctx.lineWidth = 2.5;
@@ -1071,7 +1227,6 @@
         ctx.arc(this.cx, this.cy, this.baseRadius * 0.55, Math.PI * 1.1, Math.PI * 1.5);
         ctx.stroke();
 
-        // Molten chrome streak into stretched neck
         if (this.isDragging && this.stretchDistance > 40) {
           ctx.strokeStyle = '#fffbe0';
           ctx.lineWidth = 3.5;
@@ -1119,19 +1274,24 @@
         ctx.restore();
       }
 
-      // 6. Specular Gloss Shines (Cartoon jelly sheen)
+      // 6. Wet High-Gloss Specular Sheen (Real liquid shine arc, adapts when flat)
       ctx.save();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.lineWidth = 7.0;
+      const shineAlpha = 0.85 - this.meltProgress * 0.2;
+      ctx.strokeStyle = `rgba(255, 255, 255, ${shineAlpha})`;
+      ctx.lineWidth = Math.max(4.0, 7.0 - this.meltProgress * 2.0);
       ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.arc(this.cx, this.cy, this.baseRadius * 0.78, Math.PI * 1.15, Math.PI * 1.42);
+      const shineRx = this.baseRadius * (0.78 + this.meltProgress * 0.35);
+      const shineRy = this.baseRadius * (0.62 - this.meltProgress * 0.18);
+      ctx.ellipse(this.cx, this.cy - this.baseRadius * (0.12 - this.meltProgress * 0.05), shineRx, Math.max(8, shineRy), 0, Math.PI * 1.15, Math.PI * 1.45);
       ctx.stroke();
 
       // Secondary specular dot
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.fillStyle = `rgba(255, 255, 255, ${shineAlpha})`;
       ctx.beginPath();
-      ctx.arc(this.cx - this.baseRadius * 0.55, this.cy - this.baseRadius * 0.52, 6, 0, Math.PI * 2);
+      const dotX = this.cx - this.baseRadius * (0.55 + this.meltProgress * 0.22);
+      const dotY = this.cy - this.baseRadius * (0.48 - this.meltProgress * 0.15);
+      ctx.arc(dotX, dotY, Math.max(3, 6 - this.meltProgress * 1.5), 0, Math.PI * 2);
       ctx.fill();
 
       // 7. Tip Pinch Specular Highlight (The grab point where user is holding the slime!)
@@ -1447,7 +1607,9 @@
 
           // Audio: ASMR squish
           if (window.slimeAudio) {
-            if (this.slime.texture === 'cloud') {
+            if (this.slime.texture === 'crunchy') {
+              window.slimeAudio.playBingsuCrunch();
+            } else if (this.slime.texture === 'cloud') {
               window.slimeAudio.playCloudPuff();
             } else if (this.slime.texture === 'floam') {
               window.slimeAudio.playFoamCrunch();
@@ -1469,7 +1631,10 @@
           this.slime.squish(x, y, 40);
           this.statSquishes++;
           this.updateStats();
-          if (window.slimeAudio) window.slimeAudio.playASMRSquish(this.slime.stickiness);
+          if (window.slimeAudio) {
+            if (this.slime.texture === 'crunchy') window.slimeAudio.playBingsuCrunch();
+            else window.slimeAudio.playASMRSquish(this.slime.stickiness);
+          }
         } else if (this.activeTool === 'glitter') {
           // Glitter Dust
           this.spawnGlitterDust(x, y);
@@ -1489,8 +1654,12 @@
       if (this.mouse.isDown && this.slime.isDragging) {
         // ➰ Dragging stretches putty outward!
         this.slime.updateDrag(x, y);
-        if (window.slimeAudio && Math.random() < 0.15) {
-          window.slimeAudio.playStretch(1.0);
+        if (window.slimeAudio && Math.random() < 0.16) {
+          if (this.slime.texture === 'crunchy') {
+            window.slimeAudio.playBingsuCrunch();
+          } else {
+            window.slimeAudio.playStretch(1.0);
+          }
         }
       } else {
         // 🖐️ Hovering without clicking: Soft-Body Hover Adhesion
@@ -1520,7 +1689,11 @@
           this.addCoins(3, this.mouse.x, this.mouse.y, '+3 🪙');
 
           if (window.slimeAudio) {
-            window.slimeAudio.playStickRelease(this.slime.stickiness);
+            if (this.slime.texture === 'crunchy') {
+              window.slimeAudio.playBingsuCrunch();
+            } else {
+              window.slimeAudio.playStickRelease(this.slime.stickiness);
+            }
           }
         }
       }
@@ -1535,12 +1708,12 @@
         this.particles.push(new Particle(b.x, b.y, 'rgba(255, 255, 255, 0.9)', 3, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, 0.5, true));
       }
 
-      if (window.slimeAudio) window.slimeAudio.playNoise(0.04, 0.3, 1600);
+      if (window.slimeAudio) window.slimeAudio.playBubblePop();
       this.addCoins(5, b.x, b.y, '+5 🪙');
     }
 
     spawnSquishParticles(x, y) {
-      const count = this.slime.texture === 'floam' ? 12 : 8;
+      const count = (this.slime.texture === 'floam' || this.slime.texture === 'crunchy') ? 12 : 8;
       for (let i = 0; i < count; i++) {
         let col = this.slime.color;
         if (this.slime.texture === 'cloud') {
@@ -1548,6 +1721,9 @@
         } else if (this.slime.texture === 'floam') {
           const beadCols = ['#ffffff', '#ff99c8', '#70e000', '#ffd166', '#00f5d4'];
           col = beadCols[i % beadCols.length];
+        } else if (this.slime.texture === 'crunchy') {
+          const bingsuCols = ['#ffffff', '#ffc6ff', '#bdb2ff', '#9bf6ff', '#ffd166'];
+          col = bingsuCols[i % bingsuCols.length];
         } else if (this.slime.texture === 'glitter' || this.slime.texture === 'gold') {
           col = '#ffd166';
         }
@@ -1724,6 +1900,7 @@
             if (window.slimeAudio) {
               if (t.id === 'cloud') window.slimeAudio.playCloudPuff();
               else if (t.id === 'floam') window.slimeAudio.playFoamCrunch();
+              else if (t.id === 'crunchy') window.slimeAudio.playBingsuCrunch();
               else window.slimeAudio.playASMRSquish(3);
             }
           });
@@ -1899,6 +2076,19 @@
             ctx.arc(bowlX + ox, bowlY + oy, 4, 0, Math.PI * 2);
             ctx.fill();
           });
+        } else if (curTex === 'crunchy') {
+          const bingsuHues = ['#ff70a6', '#ffd670', '#70d6ff', '#ff9770', '#e9ff70', '#ffffff'];
+          [[-22, -12], [-10, -22], [8, -20], [20, -10], [-2, -14], [14, -6], [-14, -4]].forEach(([ox, oy], i) => {
+            ctx.save();
+            ctx.translate(bowlX + ox, bowlY + oy);
+            ctx.rotate((i * 45) * Math.PI / 180);
+            ctx.fillStyle = bingsuHues[i % bingsuHues.length];
+            ctx.fillRect(-3.5, -2, 7, 4);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-3.5, -2, 7, 4);
+            ctx.restore();
+          });
         }
 
         // Bowl front rim
@@ -1967,6 +2157,7 @@
               if (window.slimeAudio) {
                 if (t.id === 'cloud') window.slimeAudio.playCloudPuff();
                 else if (t.id === 'floam') window.slimeAudio.playFoamCrunch();
+                else if (t.id === 'crunchy') window.slimeAudio.playBingsuCrunch();
                 else window.slimeAudio.playASMRSquish(3);
               }
             });
@@ -2033,6 +2224,11 @@
         grad.addColorStop(0, '#ffccd5');
         grad.addColorStop(0.4, '#ff758f');
         grad.addColorStop(1, '#c9184a');
+      } else if (t.id === 'crunchy') {
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.35, '#ffc6ff');
+        grad.addColorStop(0.7, '#bdb2ff');
+        grad.addColorStop(1, '#70d6ff');
       } else if (t.id === 'butter') {
         grad.addColorStop(0, '#fff3b0');
         grad.addColorStop(0.4, '#ffe66d');
@@ -2071,6 +2267,19 @@
           ctx.beginPath();
           ctx.arc(bx, by, 3.2, 0, Math.PI * 2);
           ctx.fill();
+        });
+      } else if (t.id === 'crunchy') {
+        const bColors = ['#ff70a6', '#ffd670', '#70d6ff', '#e9ff70', '#ffffff'];
+        [[-16, -12, 0.2], [-6, -22, -0.4], [8, -18, 0.6], [16, -10, -0.2], [-2, -10, 0.3], [10, -6, -0.5]].forEach(([bx, by, rot], i) => {
+          ctx.save();
+          ctx.translate(bx, by);
+          ctx.rotate(rot);
+          ctx.fillStyle = bColors[i % bColors.length];
+          ctx.fillRect(-3.2, -2, 6.4, 4);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.lineWidth = 0.8;
+          ctx.strokeRect(-3.2, -2, 6.4, 4);
+          ctx.restore();
         });
       } else if (t.id === 'butter') {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
