@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Slime Studio 🧪✨ The Tactile ASMR Slime Maker</title>
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,18 +13,20 @@
   <div class="game-container">
     <!-- Header Controls -->
     <header class="game-header">
-      <div class="title-container">
-        <span class="slime-icon">🧪</span>
-        <h1>Slime Studio</h1>
-        <span class="slime-icon">✨</span>
-      </div>
+      <div class="header-left">
+        <div class="title-container">
+          <span class="slime-icon">🧪</span>
+          <h1>Slime Studio</h1>
+          <span class="slime-icon">✨</span>
+        </div>
 
-      <!-- Active Slime Profile Badge -->
-      <div class="active-slime-chip" id="activeSlimeChip" title="Currently Active Slime">
-        <span class="chip-avatar" id="activeSlimeIcon">☁️</span>
-        <div class="chip-text">
-          <strong id="activeSlimeName">Cloud Slime ☁️</strong>
-          <span id="activeStickinessTag">Stickiness: Level 3 (1.5s Hover Stick)</span>
+        <!-- Active Slime Profile Badge -->
+        <div class="active-slime-chip" id="activeSlimeChip" title="Currently Active Slime">
+          <span class="chip-avatar" id="activeSlimeIcon">☁️</span>
+          <div class="chip-text">
+            <strong id="activeSlimeName">Cloud Slime ☁️</strong>
+            <span id="activeStickinessTag">Stickiness: Level 3 (1.5s Hover Stick)</span>
+          </div>
         </div>
       </div>
 
@@ -37,12 +39,12 @@
 
         <div class="controls-bar">
           <!-- Slime Maker & Texture Shop Buttons -->
-          <button id="openMakerBtn" class="btn btn-maker" title="Make a New Custom Slime">🧪 Make Slime</button>
-          <button id="openShopBtn" class="btn btn-shop" title="Buy Slime Textures">🛍️ Texture Shop</button>
+          <button id="openMakerBtn" class="btn btn-maker" title="Make a New Custom Slime">🧪 <span class="btn-text">Make Slime</span></button>
+          <button id="openShopBtn" class="btn btn-shop" title="Buy Slime Textures">🛍️ <span class="btn-text">Texture Shop</span></button>
 
           <!-- Audio & Utility Controls -->
-          <button id="soundToggle" class="btn btn-sound" title="Toggle Sound (M)">🔊 Sound: ON</button>
-          <button id="resetShapeBtn" class="btn btn-secondary" title="Center & Smooth Slime (R)">🔄 Center</button>
+          <button id="soundToggle" class="btn btn-sound btn-icon-compact" title="Toggle Sound (M)">🔊 <span class="btn-text">Sound: ON</span></button>
+          <button id="resetShapeBtn" class="btn btn-secondary btn-icon-compact" title="Center & Smooth Slime (R)">🔄 <span class="btn-text">Center</span></button>
         </div>
       </div>
     </header>
@@ -104,11 +106,12 @@
 
     <!-- Footer Help & Shortcuts -->
     <footer class="game-footer">
-      <div class="instruction-tag">🖐️ <span><strong>Hover</strong> mouse to stick (releases based on stickiness!)</span></div>
-      <div class="instruction-tag">💥 <span><strong>Click</strong> to squish & ripple</span></div>
-      <div class="instruction-tag">➰ <span><strong>Click & Drag</strong> to stretch like putty</span></div>
-      <div class="instruction-tag">🍯 <span><strong>1–5 Keys</strong> change stickiness level</span></div>
-      <div class="instruction-tag">🧪 <span>Craft custom slimes with Cloud, Floam, Bingsu & Butter textures</span></div>
+      <div class="instruction-tag desktop-only">🖐️ <span><strong>Hover</strong> mouse to stick</span></div>
+      <div class="instruction-tag desktop-only">💥 <span><strong>Click</strong> to squish & ripple</span></div>
+      <div class="instruction-tag desktop-only">➰ <span><strong>Click & Drag</strong> to stretch like putty</span></div>
+      <div class="instruction-tag desktop-only">🍯 <span><strong>1–5 Keys</strong> stickiness level</span></div>
+      <div class="instruction-tag desktop-only">🧪 <span>Craft custom slimes with Cloud, Floam, Bingsu & Butter</span></div>
+      <div class="instruction-tag mobile-only"><span>👆 <strong>Tap</strong> to squish · 🖐️ <strong>Drag</strong> to stretch · 🍯 <strong>Hold</strong> to stick</span></div>
     </footer>
   </div>
 

@@ -1454,6 +1454,13 @@
         glitter: document.getElementById('toolGlitterBtn'),
         bubble: document.getElementById('toolBubbleBtn')
       };
+      this.floatingToolbar = document.getElementById('floatingToolbar');
+      this.slimeHudPill = document.getElementById('slimeHudPill');
+
+      const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+      if (isTouch && this.hudActionFeedback) {
+        this.hudActionFeedback.textContent = '👆 Tap to squish · 🖐️ Drag to stretch · 🍯 Hold to stick!';
+      }
     }
 
     bindEventListeners() {
@@ -1464,11 +1471,14 @@
         }, { once: true, passive: true });
       });
 
-      // Canvas Pointer Coordinate Mapping
+      // Canvas Pointer Coordinate Mapping (Safe for mouse & touch with ended touches)
       const getPos = (e) => {
         const rect = this.canvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const t = (e.touches && e.touches.length > 0)
+          ? e.touches[0]
+          : (e.changedTouches && e.changedTouches.length > 0 ? e.changedTouches[0] : e);
+        const clientX = t ? t.clientX : (rect.left + rect.width / 2);
+        const clientY = t ? t.clientY : (rect.top + rect.height / 2);
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;
         return {
@@ -1480,6 +1490,9 @@
       // 💥 Canvas Mouse Down: Click to Squish or Start Drag Stretch
       this.canvas.addEventListener('mousedown', (e) => {
         const pos = getPos(e);
+        this.pointerStartX = pos.x;
+        this.pointerStartY = pos.y;
+        this.pointerStartTime = performance.now();
         this.handlePointerDown(pos.x, pos.y);
       });
 
@@ -1494,23 +1507,48 @@
         this.handlePointerUp();
       });
 
-      // Mobile Touch Handlers
+      // Mobile Touch Handlers (Fluid touch tracking across window)
       this.canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
         const pos = getPos(e);
+        this.pointerStartX = pos.x;
+        this.pointerStartY = pos.y;
+        this.pointerStartTime = performance.now();
         this.handlePointerDown(pos.x, pos.y);
       }, { passive: false });
 
-      this.canvas.addEventListener('touchmove', (e) => {
-        e.preventDefault();
+      window.addEventListener('touchmove', (e) => {
+        if (!this.mouse.isDown) return;
         const pos = getPos(e);
         this.handlePointerMove(pos.x, pos.y);
       }, { passive: false });
 
-      this.canvas.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        this.handlePointerUp();
+      window.addEventListener('touchend', (e) => {
+        if (this.mouse.isDown) {
+          const pos = getPos(e);
+          this.mouse.x = pos.x;
+          this.mouse.y = pos.y;
+          this.handlePointerUp();
+        }
       }, { passive: false });
+
+      window.addEventListener('touchcancel', () => {
+        if (this.mouse.isDown) {
+          this.handlePointerUp();
+        }
+      }, { passive: true });
+
+      // Stop touch event propagation on toolbar and HUD so tapping controls doesn't poke slime underneath
+      if (this.floatingToolbar) {
+        ['touchstart', 'touchmove', 'touchend'].forEach(evt => {
+          this.floatingToolbar.addEventListener(evt, (e) => e.stopPropagation(), { passive: true });
+        });
+      }
+      if (this.slimeHudPill) {
+        ['touchstart', 'touchmove', 'touchend'].forEach(evt => {
+          this.slimeHudPill.addEventListener(evt, (e) => e.stopPropagation(), { passive: true });
+        });
+      }
 
       // Keyboard Shortcuts (1-5 change stickiness, R resets shape, M mutes sound)
       window.addEventListener('keydown', (e) => {
@@ -1651,19 +1689,43 @@
       this.mouse.x = x;
       this.mouse.y = y;
 
-      if (this.mouse.isDown && this.slime.isDragging) {
-        // ➰ Dragging stretches putty outward!
-        this.slime.updateDrag(x, y);
-        if (window.slimeAudio && Math.random() < 0.16) {
-          if (this.slime.texture === 'crunchy') {
-            window.slimeAudio.playBingsuCrunch();
-          } else {
-            window.slimeAudio.playStretch(1.0);
+      const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+      const defaultFeedback = isTouch
+        ? '👆 Tap to squish · 🖐️ Drag to stretch · 🍯 Hold to stick!'
+        : '🖐️ Hover to stick · Click to squish · Drag to stretch!';
+
+      if (this.mouse.isDown) {
+        const moveDist = Math.hypot(x - (this.pointerStartX || x), y - (this.pointerStartY || y));
+        const holdTime = performance.now() - (this.pointerStartTime || 0);
+
+        // Touch hold or mouse hold: finger stays in one place on the slime -> gooey adhesion!
+        if (moveDist < 16 && holdTime > 120 && this.slime.containsPoint(x, y)) {
+          this.isTouchHolding = true;
+          const unstickEvent = this.slime.updateHover(x, y, 0.016, window.slimeAudio);
+          if (unstickEvent) {
+            this.spawnUnstickParticles(unstickEvent.x, unstickEvent.y);
+            this.addCoins(2, unstickEvent.x, unstickEvent.y, '+2 🪙');
+            if (this.hudActionFeedback) {
+              this.hudActionFeedback.textContent = `🍯 Unstuck! (Level ${unstickEvent.stickiness} release pop)`;
+              setTimeout(() => {
+                if (this.hudActionFeedback) this.hudActionFeedback.textContent = defaultFeedback;
+              }, 1200);
+            }
+          }
+        } else if (this.slime.isDragging) {
+          this.isTouchHolding = false;
+          // ➰ Dragging stretches putty outward!
+          this.slime.updateDrag(x, y);
+          if (window.slimeAudio && Math.random() < 0.16) {
+            if (this.slime.texture === 'crunchy') {
+              window.slimeAudio.playBingsuCrunch();
+            } else {
+              window.slimeAudio.playStretch(1.0);
+            }
           }
         }
       } else {
         // 🖐️ Hovering without clicking: Soft-Body Hover Adhesion
-        // Updates hover stickiness and triggers unstick release pop if timer expires
         const unstickEvent = this.slime.updateHover(x, y, 0.016, window.slimeAudio);
         if (unstickEvent) {
           this.spawnUnstickParticles(unstickEvent.x, unstickEvent.y);
@@ -1671,7 +1733,7 @@
           if (this.hudActionFeedback) {
             this.hudActionFeedback.textContent = `🍯 Unstuck! (Level ${unstickEvent.stickiness} release pop)`;
             setTimeout(() => {
-              if (this.hudActionFeedback) this.hudActionFeedback.textContent = '🖐️ Hover to stick · Click to squish · Drag to stretch!';
+              if (this.hudActionFeedback) this.hudActionFeedback.textContent = defaultFeedback;
             }, 1200);
           }
         }
@@ -1681,7 +1743,16 @@
     handlePointerUp() {
       if (this.mouse.isDown) {
         this.mouse.isDown = false;
-        if (this.slime.isDragging) {
+        if (this.isTouchHolding && this.slime.isHoverStuck) {
+          // Touch release during gooey hold
+          this.slime.isHoverStuck = false;
+          this.slime.hoverCooldown = 0.35;
+          this.spawnUnstickParticles(this.mouse.x, this.mouse.y);
+          this.addCoins(2, this.mouse.x, this.mouse.y, '+2 🪙');
+          if (window.slimeAudio) {
+            window.slimeAudio.playStickRelease(this.slime.stickiness);
+          }
+        } else if (this.slime.isDragging) {
           // Snap back putty stretch!
           this.slime.endDrag();
           this.statStretches++;
@@ -1696,6 +1767,7 @@
             }
           }
         }
+        this.isTouchHolding = false;
       }
     }
 
@@ -1806,18 +1878,24 @@
     toggleSound() {
       if (!window.slimeAudio) return;
       const isMuted = window.slimeAudio.toggleMute();
-      this.soundToggleBtn.textContent = isMuted ? '🔇 Sound: OFF' : '🔊 Sound: ON';
+      this.soundToggleBtn.innerHTML = isMuted ? '🔇 <span class="btn-text">Sound: OFF</span>' : '🔊 <span class="btn-text">Sound: ON</span>';
       this.soundToggleBtn.classList.toggle('muted', isMuted);
     }
 
-    // Responsive Canvas Screen Warper
+    // Responsive Canvas Screen Warper (Adapts seamlessly to Portrait mobile & Landscape desktop)
     warpGameToScreen() {
       if (!this.canvasStage || !this.canvasWrapper) return;
       const availableW = this.canvasStage.clientWidth;
       const availableH = this.canvasStage.clientHeight;
       if (availableW <= 0 || availableH <= 0) return;
 
-      const targetRatio = CANVAS_WIDTH / CANVAS_HEIGHT; // 960 / 540 = 1.777
+      // On portrait mobile/tablet, availableH is significantly greater than availableW.
+      // Use an upright aspect ratio (640x800, 4:5) so the slime gets full vertical room!
+      const isPortrait = availableH > availableW * 1.05;
+      const targetCanvasW = isPortrait ? 640 : 960;
+      const targetCanvasH = isPortrait ? 800 : 540;
+      const targetRatio = targetCanvasW / targetCanvasH;
+
       let w = availableW;
       let h = w / targetRatio;
 
@@ -1828,6 +1906,16 @@
 
       this.canvasWrapper.style.width = `${Math.floor(w)}px`;
       this.canvasWrapper.style.height = `${Math.floor(h)}px`;
+
+      // Update internal canvas resolution and slime center on orientation switch
+      if (this.canvas.width !== targetCanvasW || this.canvas.height !== targetCanvasH) {
+        this.canvas.width = targetCanvasW;
+        this.canvas.height = targetCanvasH;
+        this.slime.cx = targetCanvasW / 2;
+        this.slime.cy = targetCanvasH / 2;
+        this.slime.baseRadius = isPortrait ? 150 : 135;
+        this.slime.resetShape();
+      }
     }
 
     // --- Slime Studio Initialization & UI Population ---
@@ -2349,7 +2437,9 @@
 
     render() {
       const ctx = this.ctx;
-      ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      const cw = this.canvas.width;
+      const ch = this.canvas.height;
+      ctx.clearRect(0, 0, cw, ch);
 
       // A. Studio Mat Background
       this.drawStudioTable(ctx);
@@ -2383,16 +2473,21 @@
     }
 
     drawStudioTable(ctx) {
+      const cw = this.canvas.width;
+      const ch = this.canvas.height;
+      const cx = cw / 2;
+      const cy = ch / 2;
+
       // Tabletop gradient (clean modern marble / pastel studio look)
       const bgGrad = ctx.createRadialGradient(
-        CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 80,
-        CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 480
+        cx, cy, 80,
+        cx, cy, Math.max(cw, ch) * 0.65
       );
       bgGrad.addColorStop(0, '#1c314a');
       bgGrad.addColorStop(0.6, '#0f2038');
       bgGrad.addColorStop(1, '#081424');
       ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.fillRect(0, 0, cw, ch);
 
       // Concentric circular play mat rings beneath slime
       ctx.save();
@@ -2400,26 +2495,26 @@
       ctx.lineWidth = 2;
 
       ctx.beginPath();
-      ctx.arc(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 185, 0, Math.PI * 2);
+      ctx.arc(cx, cy, this.slime.baseRadius * 1.35, 0, Math.PI * 2);
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.arc(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 230, 0, Math.PI * 2);
+      ctx.arc(cx, cy, this.slime.baseRadius * 1.68, 0, Math.PI * 2);
       ctx.stroke();
 
       // Subtle table grid texture lines
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
       ctx.lineWidth = 1;
-      for (let x = 60; x < CANVAS_WIDTH; x += 60) {
+      for (let x = 60; x < cw; x += 60) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
-        ctx.lineTo(x, CANVAS_HEIGHT);
+        ctx.lineTo(x, ch);
         ctx.stroke();
       }
-      for (let y = 60; y < CANVAS_HEIGHT; y += 60) {
+      for (let y = 60; y < ch; y += 60) {
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(CANVAS_WIDTH, y);
+        ctx.lineTo(cw, y);
         ctx.stroke();
       }
 
