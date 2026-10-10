@@ -273,6 +273,11 @@
       this.stickiness = 3;     // 1 to 5
       this.charm = 'none';
 
+      // Physical Mass, Density & Fluid Bulk Properties
+      this.density = this.getTextureDensity(this.texture);
+      this.totalMass = this.calculateTotalMass();
+      this.vertexMass = this.totalMass / NUM_VERTICES;
+
       // 36 Boundary 2D Viscoelastic Soft-Body Vertices
       this.vertices = [];
       for (let i = 0; i < NUM_VERTICES; i++) {
@@ -289,7 +294,8 @@
           vy: 0,
           restX: x,
           restY: y,
-          pinned: false
+          pinned: false,
+          mass: this.vertexMass
         });
       }
 
@@ -426,11 +432,66 @@
       }
     }
 
+    // --- Physical Mass & Geometry Helpers ---
+    getTextureDensity(texture = this.texture) {
+      const densities = {
+        cloud: 0.65,    // Light, whipped, fluffy snow-powder
+        floam: 0.85,    // Micro-polystyrene beads in gel
+        classic: 1.00,  // Standard translucent PVA-borate gel
+        glitter: 1.04,  // Foil glitter star flakes
+        crystal: 1.08,  // Dense optical clear glass gel
+        crunchy: 1.18,  // Crispy bingsu faceted beads
+        butter: 1.25,   // Heavy velvety clay-infused spread
+        gold: 1.35      // Molten heavy metallic chrome
+      };
+      return densities[texture] || 1.00;
+    }
+
+    calculateTotalMass() {
+      // Physical soft-body mass calculation: M = density * Area_base * scale
+      // Normalized in simulation mass units (kg equivalent)
+      const rRatio = this.baseRadius / 100;
+      const baseArea = Math.PI * rRatio * rRatio;
+      return this.density * baseArea * 28.0;
+    }
+
+    setTexture(newTexture) {
+      this.texture = newTexture;
+      this.density = this.getTextureDensity(newTexture);
+      this.totalMass = this.calculateTotalMass();
+      this.vertexMass = this.totalMass / NUM_VERTICES;
+      for (let i = 0; i < this.vertices.length; i++) {
+        this.vertices[i].mass = this.vertexMass;
+      }
+    }
+
+    getPolygonArea() {
+      let area = 0;
+      const n = this.vertices.length;
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        area += this.vertices[i].x * this.vertices[j].y - this.vertices[j].x * this.vertices[i].y;
+      }
+      return Math.abs(area) * 0.5;
+    }
+
+    getCentroid() {
+      let cx = 0, cy = 0;
+      const n = this.vertices.length;
+      for (let i = 0; i < n; i++) {
+        cx += this.vertices[i].x;
+        cy += this.vertices[i].y;
+      }
+      return { x: cx / n, y: cy / n };
+    }
+
     applyRecipe({ color, secondaryColor, hasDualSwirl, texture, stickiness, charm }) {
       if (color) this.color = color;
       if (secondaryColor) this.secondaryColor = secondaryColor;
       if (hasDualSwirl !== undefined) this.hasDualSwirl = hasDualSwirl;
-      if (texture) this.texture = texture;
+      if (texture) {
+        this.setTexture(texture);
+      }
       if (stickiness !== undefined) {
         this.stickiness = parseInt(stickiness, 10);
         this.hoverStickMax = STICKINESS_HOLD_TIMES[this.stickiness] || 1.5;
@@ -499,31 +560,16 @@
       const ux = dx / dist;
       const uy = dy / dist;
 
-      // Inward indentation impulse at clicked vertex
-      const tv = this.vertices[targetIdx];
-      tv.vx -= ux * force * 3.8;
-      tv.vy -= uy * force * 3.8;
-
-      // Ripples and lateral volume conservation bulges around the perimeter
+      // Inward indentation impulse scaled by physical vertex mass (inertia)
+      const impulse = (force * 2.2) / Math.sqrt(this.vertexMass || 1);
       const n = this.vertices.length;
-      for (let i = 1; i <= 7; i++) {
-        const falloff = (8 - i) / 8;
-        const leftIdx = (targetIdx - i + n) % n;
-        const rightIdx = (targetIdx + i) % n;
 
-        if (i <= 2) {
-          // Inward dent for immediate neighbors
-          this.vertices[leftIdx].vx -= ux * force * 2.2 * falloff;
-          this.vertices[leftIdx].vy -= uy * force * 2.2 * falloff;
-          this.vertices[rightIdx].vx -= ux * force * 2.2 * falloff;
-          this.vertices[rightIdx].vy -= uy * force * 2.2 * falloff;
-        } else {
-          // Bulge outward further along the body for jelly incompressibility
-          this.vertices[leftIdx].vx += ux * force * 1.5 * falloff;
-          this.vertices[leftIdx].vy += uy * force * 1.5 * falloff;
-          this.vertices[rightIdx].vx += ux * force * 1.5 * falloff;
-          this.vertices[rightIdx].vy += uy * force * 1.5 * falloff;
-        }
+      // Smooth cosine bell distribution over neighboring vertices (organic thumbprint depression)
+      for (let i = -4; i <= 4; i++) {
+        const vIdx = (targetIdx + i + n) % n;
+        const falloff = Math.cos((Math.abs(i) / 5) * (Math.PI / 2));
+        this.vertices[vIdx].vx -= ux * impulse * falloff;
+        this.vertices[vIdx].vy -= uy * impulse * falloff;
       }
 
       this.globalWobble = 0.55;
@@ -560,27 +606,17 @@
       this.untouchedTimer = 0;
       if (this.dragIndex !== -1) {
         const n = this.vertices.length;
-        // Elastic rebound snap-back on all stretched tendril vertices!
-        const snapMultiplier = 4.2 - (this.stickiness - 1) * 0.45;
-        const K = 7;
-        for (let d = 0; d <= K; d++) {
-          const leftIdx = (this.dragIndex - d + n) % n;
-          const rightIdx = (this.dragIndex + d) % n;
-          const leftV = this.vertices[leftIdx];
-          const rightV = this.vertices[rightIdx];
-
-          const dispLX = leftV.x - leftV.restX;
-          const dispLY = leftV.y - leftV.restY;
-          leftV.vx -= dispLX * snapMultiplier;
-          leftV.vy -= dispLY * snapMultiplier;
-          leftV.pinned = false;
-
-          if (d > 0) {
-            const dispRX = rightV.x - rightV.restX;
-            const dispRY = rightV.y - rightV.restY;
-            rightV.vx -= dispRX * snapMultiplier;
-            rightV.vy -= dispRY * snapMultiplier;
-            rightV.pinned = false;
+        // Elastic rebound: unpin all tendril vertices with smooth, capped rebound impulse scaled by mass
+        const maxSnapVel = 120;
+        const snapRate = 0.45 / Math.sqrt(this.density || 1);
+        for (let i = 0; i < n; i++) {
+          const v = this.vertices[i];
+          if (v.pinned) {
+            const dispX = v.x - v.restX;
+            const dispY = v.y - v.restY;
+            v.vx = Math.max(-maxSnapVel, Math.min(maxSnapVel, -dispX * snapRate));
+            v.vy = Math.max(-maxSnapVel, Math.min(maxSnapVel, -dispY * snapRate));
+            v.pinned = false;
           }
         }
         this.globalWobble = 0.75;
@@ -645,8 +681,10 @@
 
           if (this.hoverVertexIdx !== -1) {
             const hv = this.vertices[this.hoverVertexIdx];
-            hv.vx -= (mouseX - hv.x) * 0.8;
-            hv.vy -= (mouseY - hv.y) * 0.8;
+            const pullVelX = (mouseX - hv.x) * 0.5;
+            const pullVelY = (mouseY - hv.y) * 0.5;
+            hv.vx -= Math.max(-90, Math.min(90, pullVelX));
+            hv.vy -= Math.max(-90, Math.min(90, pullVelY));
           }
 
           // Satisfying suction release pop audio!
@@ -661,7 +699,7 @@
       return null;
     }
 
-    // Soft-body Viscoelastic Spring Simulation Step
+    // Soft-body Viscoelastic Spring Simulation Step with Physical Mass & Incompressibility
     updatePhysics(dt) {
       const n = this.vertices.length;
       this.idlePhase += dt * 3.2;
@@ -692,26 +730,37 @@
       const rxScale = expansion * (1.0 + this.meltProgress * 0.16);
       const ryScale = expansion * (1.0 - this.meltProgress * 0.22);
 
-      // 1. Viscous drag tracking & tendril geometry update
+      // 1. Viscous drag tracking & anti-folding tendril geometry
       if (this.isDragging && this.dragIndex !== -1) {
         const viscousFollow = 0.42;
         this.dragSmoothX += (this.dragX - this.dragSmoothX) * viscousFollow;
         this.dragSmoothY += (this.dragY - this.dragSmoothY) * viscousFollow;
+
+        // Core containment: prevent cursor from dragging boundary through centroid
+        const toCentCursorX = this.dragSmoothX - this.cx;
+        const toCentCursorY = this.dragSmoothY - this.cy;
+        const cursorDist = Math.hypot(toCentCursorX, toCentCursorY);
+        const minCoreDist = currentRadius * 0.35;
+        if (cursorDist < minCoreDist) {
+          const uDist = cursorDist > 0.001 ? cursorDist : 1;
+          this.dragSmoothX = this.cx + (toCentCursorX / uDist) * minCoreDist;
+          this.dragSmoothY = this.cy + (toCentCursorY / uDist) * minCoreDist;
+        }
 
         // Transverse curvature / catenary lag
         const mdx = this.dragX - this.dragPrevX;
         const mdy = this.dragY - this.dragPrevY;
         const toCursorX = this.dragSmoothX - this.cx;
         const toCursorY = this.dragSmoothY - this.cy;
-        const cursorDist = Math.hypot(toCursorX, toCursorY) || 1;
-        const normCursorX = -toCursorY / cursorDist;
-        const normCursorY = toCursorX / cursorDist;
+        const cursorDistEff = Math.hypot(toCursorX, toCursorY) || 1;
+        const normCursorX = -toCursorY / cursorDistEff;
+        const normCursorY = toCursorX / cursorDistEff;
         const lateralSpeed = mdx * normCursorX + mdy * normCursorY;
         this.tendrilCurvature += (lateralSpeed * 1.8 - this.tendrilCurvature) * 0.18;
         this.tendrilCurvature *= 0.94;
 
         const g = this.dragIndex;
-        const K = 7; // 7 neighbors on each side = 15 tendril vertices
+        const K = 5; // 5 neighbors on each side = 11 tendril vertices
 
         const anchorLIdx = (g - K - 1 + n) % n;
         const anchorRIdx = (g + K + 1) % n;
@@ -731,23 +780,29 @@
         const pullNormX = -pullTanY;
         const pullNormY = pullTanX;
 
-        const baseDist = Math.hypot(anchorL.x - anchorR.x, anchorL.y - anchorR.y);
-        const wBase = Math.min(65, Math.max(35, baseDist * 0.5));
-        const wTip = 15;
+        // Anti-twist side check: ensure left and right tendril flanks never cross each other
+        const toAnchorLX = anchorL.x - baseMidX;
+        const toAnchorLY = anchorL.y - baseMidY;
+        const sideDot = toAnchorLX * pullNormX + toAnchorLY * pullNormY;
+        const leftSideSign = sideDot >= 0 ? 1 : -1;
 
-        // Viscous necking factor (mass conservation: neck narrows as stretch grows)
+        const baseDist = Math.hypot(anchorL.x - anchorR.x, anchorL.y - anchorR.y);
+        const wBase = Math.min(65, Math.max(30, baseDist * 0.48));
+        const wTip = 14;
+
+        // Viscous necking factor (mass conservation: neck narrows smoothly as stretch grows)
         const neckSensitivity = 55 + (5 - this.stickiness) * 10;
-        const neckFactor = 1 / Math.sqrt(1 + Math.max(0, pullLen - 60) / neckSensitivity);
+        const neckFactor = 1 / Math.sqrt(1 + Math.max(0, pullLen - 50) / neckSensitivity);
 
         // Position tip vertex directly at smoothed cursor position
         const tipV = this.vertices[g];
         tipV.x = this.dragSmoothX;
         tipV.y = this.dragSmoothY;
-        tipV.vx = (this.dragX - this.dragPrevX) * 20;
-        tipV.vy = (this.dragY - this.dragPrevY) * 20;
+        tipV.vx = (this.dragX - this.dragPrevX) * 15;
+        tipV.vy = (this.dragY - this.dragPrevY) * 15;
         tipV.pinned = true;
 
-        // Shape each pair of left/right vertices along the tendril spine
+        // Shape each pair along tendril spine with guaranteed zero crossover
         for (let d = 1; d <= K; d++) {
           const t = 1 - d / (K + 1);
 
@@ -760,29 +815,29 @@
 
           const wLinear = wBase * (1 - t) + wTip * t;
           const pinch = 4 * t * (1 - t) * (1 - neckFactor);
-          const halfWidth = Math.max(6, wLinear * (1 - pinch));
+          const halfWidth = Math.max(9, wLinear * (1 - pinch));
 
-          const targetLX = spineX + pullNormX * halfWidth;
-          const targetLY = spineY + pullNormY * halfWidth;
-          const targetRX = spineX - pullNormX * halfWidth;
-          const targetRY = spineY - pullNormY * halfWidth;
+          const targetLX = spineX + pullNormX * halfWidth * leftSideSign;
+          const targetLY = spineY + pullNormY * halfWidth * leftSideSign;
+          const targetRX = spineX - pullNormX * halfWidth * leftSideSign;
+          const targetRY = spineY - pullNormY * halfWidth * leftSideSign;
 
           const leftIdx = (g - d + n) % n;
           const rightIdx = (g + d) % n;
           const leftV = this.vertices[leftIdx];
           const rightV = this.vertices[rightIdx];
 
-          const pullRatio = 0.42 + t * 0.45;
+          const pullRatio = 0.50 + t * 0.40;
           leftV.x += (targetLX - leftV.x) * pullRatio;
           leftV.y += (targetLY - leftV.y) * pullRatio;
-          leftV.vx = (targetLX - leftV.x) * 15;
-          leftV.vy = (targetLY - leftV.y) * 15;
+          leftV.vx = (targetLX - leftV.x) * 12;
+          leftV.vy = (targetLY - leftV.y) * 12;
           leftV.pinned = true;
 
           rightV.x += (targetRX - rightV.x) * pullRatio;
           rightV.y += (targetRY - rightV.y) * pullRatio;
-          rightV.vx = (targetRX - rightV.x) * 15;
-          rightV.vy = (targetRY - rightV.y) * 15;
+          rightV.vx = (targetRX - rightV.x) * 12;
+          rightV.vy = (targetRY - rightV.y) * 12;
           rightV.pinned = true;
         }
 
@@ -824,14 +879,28 @@
         v.restY = this.cy + bodyShiftY + Math.sin(v.restAngle) * ry;
       }
 
-      // 3. Multi-substep Spring-Damper Physics Integration
-      const subSteps = 2;
+      // 3. Multi-substep Physical Mass, Internal Pressure & Anti-Fold Solver
+      const subSteps = 3;
       const subDt = Math.min(0.02, dt) / subSteps;
-      const kRest = 85;
-      const kNeighbor = 70;
-      const cDamp = 5.2 + (this.stickiness - 1) * 1.8;
+      const density = this.density || 1.0;
+
+      const kRest = 75.0 * density;
+      const kNeighbor = 65.0 * density;
+      const kBend = 45.0 * density;
+      const kPressure = 1400.0 * density;
+      const cDamp = (5.2 + (this.stickiness - 1) * 1.5) * density;
+      const targetArea = Math.PI * (currentRadius * expansion) * (currentRadius * expansion);
+      const coreRadius = currentRadius * 0.40;
+      const hardFloor = currentRadius * 0.26;
+      const kCore = 240.0 * density;
 
       for (let step = 0; step < subSteps; step++) {
+        const curArea = this.getPolygonArea();
+        let pGauge = kPressure * (targetArea - curArea) / targetArea;
+        pGauge = Math.max(-500, Math.min(1500, pGauge));
+
+        const centroid = this.getCentroid();
+
         for (let i = 0; i < n; i++) {
           const v = this.vertices[i];
           if (v.pinned) continue;
@@ -839,25 +908,71 @@
           const prev = this.vertices[(i - 1 + n) % n];
           const next = this.vertices[(i + 1) % n];
 
-          // Restoring spring to equilibrium shape
+          // 1. Equilibrium shape restoring spring
           const fRestX = -kRest * (v.x - v.restX);
           const fRestY = -kRest * (v.y - v.restY);
 
-          // Surface tension / neighbor cohesion
+          // 2. Neighbor edge tension
           const avgNeighborX = (prev.x + next.x) * 0.5;
           const avgNeighborY = (prev.y + next.y) * 0.5;
-          const fTensionX = kNeighbor * (avgNeighborX - v.x);
-          const fTensionY = kNeighbor * (avgNeighborY - v.y);
+          const fEdgeX = kNeighbor * (avgNeighborX - v.x);
+          const fEdgeY = kNeighbor * (avgNeighborY - v.y);
 
-          // Damping force
+          // 3. Curvature bending resistance (anti-crease / smooth plump boundary)
+          const dxEdge = next.x - prev.x;
+          const dyEdge = next.y - prev.y;
+          const edgeLen = Math.hypot(dxEdge, dyEdge) || 1.0;
+          const normOutX = dyEdge / edgeLen;
+          const normOutY = -dxEdge / edgeLen;
+          const sag = currentRadius * (1.0 - Math.cos(Math.PI / n));
+          const smoothX = avgNeighborX + normOutX * sag;
+          const smoothY = avgNeighborY + normOutY * sag;
+          const fBendX = kBend * (smoothX - v.x);
+          const fBendY = kBend * (smoothY - v.y);
+
+          // 4. Incompressible hydrostatic gauge fluid pressure force
+          const fPressX = 0.5 * pGauge * dyEdge;
+          const fPressY = -0.5 * pGauge * dxEdge;
+
+          // 5. Anti-inversion core repulsion barrier
+          const toCentX = v.x - centroid.x;
+          const toCentY = v.y - centroid.y;
+          const distCent = Math.hypot(toCentX, toCentY) || 0.001;
+          const uCentX = toCentX / distCent;
+          const uCentY = toCentY / distCent;
+
+          let fCoreX = 0, fCoreY = 0;
+          if (distCent < coreRadius) {
+            const penetration = (coreRadius - distCent) / coreRadius;
+            const fCoreMag = kCore * penetration * v.mass * 100.0;
+            fCoreX = uCentX * fCoreMag;
+            fCoreY = uCentY * fCoreMag;
+          }
+
+          // 6. Viscous damping
           const fDampX = -cDamp * v.vx;
           const fDampY = -cDamp * v.vy;
 
-          // Integrate
-          v.vx += (fRestX + fTensionX + fDampX) * subDt;
-          v.vy += (fRestY + fTensionY + fDampY) * subDt;
+          // Newton's Second Law: a = F_net / m
+          const fTotalX = fRestX + fEdgeX + fBendX + fPressX + fCoreX + fDampX;
+          const fTotalY = fRestY + fEdgeY + fBendY + fPressY + fCoreY + fDampY;
+          const vMass = v.mass || this.vertexMass || 1.0;
+          const ax = fTotalX / vMass;
+          const ay = fTotalY / vMass;
+
+          v.vx += ax * subDt;
+          v.vy += ay * subDt;
           v.x += v.vx * subDt;
           v.y += v.vy * subDt;
+
+          // Absolute hard-floor core penetration guard
+          const distAfter = Math.hypot(v.x - centroid.x, v.y - centroid.y);
+          if (distAfter < hardFloor) {
+            v.x = centroid.x + uCentX * hardFloor;
+            v.y = centroid.y + uCentY * hardFloor;
+            v.vx *= 0.2;
+            v.vy *= 0.2;
+          }
         }
       }
 
@@ -873,6 +988,9 @@
       this.tendrilCurvature = 0;
       this.untouchedTimer = 0;
       this.meltProgress = 0;
+      this.density = this.getTextureDensity(this.texture);
+      this.totalMass = this.calculateTotalMass();
+      this.vertexMass = this.totalMass / NUM_VERTICES;
       for (let i = 0; i < this.vertices.length; i++) {
         const v = this.vertices[i];
         v.x = this.cx + Math.cos(v.restAngle) * this.baseRadius;
@@ -880,6 +998,7 @@
         v.vx = 0;
         v.vy = 0;
         v.pinned = false;
+        v.mass = this.vertexMass;
       }
       this.globalWobble = 0.4;
     }
@@ -2238,7 +2357,7 @@
             btn.className += ' btn-texture-equip';
             btn.textContent = 'Equip Texture';
             btn.addEventListener('click', () => {
-              this.slime.texture = t.id;
+              this.slime.setTexture(t.id);
               this.initTextureShop();
               this.initSlimeMakerForm();
               this.updateHeaderProfile();
@@ -2261,7 +2380,7 @@
               this.addCoins(-t.price);
               this.unlockedTextures.push(t.id);
               localStorage.setItem('slime_unlocked_textures', JSON.stringify(this.unlockedTextures));
-              this.slime.texture = t.id;
+              this.slime.setTexture(t.id);
               this.initTextureShop();
               this.initSlimeMakerForm();
               this.updateHeaderProfile();
